@@ -2,7 +2,7 @@ import random
 import math
 
 def complete_weighted_graph(n):
-    adj = [[] for _ in range(n)]
+    adj = {p: [] for p in range(n)}
 
     for i in range(n):
         for j in range(i + 1, n):
@@ -13,7 +13,7 @@ def complete_weighted_graph(n):
     return adj
 
 def hypercube(n):
-    adj = [[] for _ in range(n)]
+    adj = {p: [] for p in range(n)}
 
     for i in range(n):
         for j in range(i + 1, n):
@@ -82,3 +82,5 @@ def unit_hypercube_graph(n):
 
     return adj
 
+def prim_alg(G):
+     
