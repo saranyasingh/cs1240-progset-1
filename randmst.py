@@ -42,6 +42,9 @@ class MinHeap:
             i = smallest
         return item
 
+    def is_empty(self):
+        return len(self.data) == 0
+
 
 def complete_weighted_graph(n):
     adj = {p: [] for p in range(n)}
@@ -125,7 +128,7 @@ def unit_hypercube_graph(n):
     return adj
 
 def prim_mst(G):
-    start = G[0]
+    start = next(iter(G)) 
     visited = {start}
     heap = MinHeap()
 
@@ -151,3 +154,14 @@ def prim_mst(G):
                 heap.push((w, v, neighbor))
 
     return mst_edges, total_weight
+
+def main():
+    n = 10
+    graph = complete_weighted_graph(n)
+    mst, total_weight = prim_mst(graph)
+    print("MST edges:", mst)
+    print("Total weight:", total_weight)
+
+main()
+
+
