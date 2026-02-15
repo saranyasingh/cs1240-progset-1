@@ -1,5 +1,6 @@
 import random 
 import math
+import time
 
 class MinHeap:
     def __init__(self):
@@ -156,11 +157,23 @@ def prim_mst(G):
     return mst_edges, total_weight
 
 def main():
-    n = 10
-    graph = complete_weighted_graph(n)
-    mst, total_weight = prim_mst(graph)
-    print("MST edges:", mst)
-    print("Total weight:", total_weight)
+    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    trials = 5
+
+    for n in sizes:
+        total_time = 0
+
+        for _ in range(trials):
+            start = time.time()
+
+            graph = complete_weighted_graph(n)
+            mst, total_weight = prim_mst(graph)
+
+            end = time.time()
+            total_time += (end - start)
+
+        avg_time = total_time / trials
+        print(f"n = {n:<6} | Average runtime over {trials} runs: {avg_time:.4f} seconds")
 
 main()
 
