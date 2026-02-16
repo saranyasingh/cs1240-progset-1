@@ -217,6 +217,7 @@ def prim_array_dense_geometric(points):
 
 
 # ---- TESTING ------
+
 def is_connected(adj):
     start = next(iter(adj))
     seen = {start}
@@ -229,6 +230,7 @@ def is_connected(adj):
                 stack.append(v)
     return len(seen) == len(adj)
 
+'''
 def connectivity_tests():
     sizes = [128, 256, 512, 1024, 2048]
     trials = 10
@@ -282,12 +284,13 @@ def connectivity_tests():
             if is_connected(graph):
                 connected_count += 1
         print(f"n={n}  connected {connected_count}/{trials}")
-
+'''
 
 def main():
-    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
     trials = 5
-
+    
+    '''
     # 1) Complete weighted
     for n in sizes:
         total_weight = 0
@@ -317,7 +320,7 @@ def main():
 
         avg_weight = total_weight / trials
         print(f"Hypercube for {n}: {avg_weight:.4f}")
-
+    '''
     # 3) Unit square (2D)
     for n in sizes:
         total_weight = 0
@@ -360,7 +363,6 @@ def main():
         avg_weight = total_weight / trials
         print(f"Unit hypercube for {n}: {avg_weight:.4f}")
 
-connectivity_tests()
 main()
 
 '''
@@ -375,7 +377,7 @@ def test_pruned_mst():
     assert len(mst_edges) == n-1, f"Geometric MST incomplete, edges: {len(mst_edges)}"
 
     # Test hypercube pruning
-    adj_hyper = hypercube_graph_pruned(n, C=C)
+    adj_hyper = hgh(n, C=C)
     mst_edges, total_weight = prim_mst_decrease_key(adj_hyper)
     assert len(mst_edges) == n-1, f"Hypercube MST incomplete, edges: {len(mst_edges)}"
 
