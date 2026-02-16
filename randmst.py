@@ -6,7 +6,7 @@ class MinHeap:
     def __init__(self):
         self.data = []
 
-    def push(self, item):
+    def push(self, item): # O(logn) time complexity
         self.data.append(item)
         i = len(self.data) - 1
 
@@ -19,7 +19,7 @@ class MinHeap:
             else:
                 break
 
-    def pop(self):
+    def pop(self): # O(logn) time complexity
         self.data[0], self.data[len(self.data) - 1] = self.data[len(self.data) - 1], self.data[0]
         item = self.data.pop()
         i = 0
@@ -96,10 +96,10 @@ def unit_cube_graph(n):
 
     for i in range(n):
         p1 = points[i]
-        x1, y1 = p1
+        # x1, y1 = p1 Unecessary
         for j in range(i + 1, n):
             p2 = points[j]
-            x2, y2 = p2
+            # x2, y2 = p2 # 
 
             weight = math.sqrt(sum((p1[k] - p2[k])**2 for k in range(3)))
 
@@ -115,10 +115,10 @@ def unit_hypercube_graph(n):
 
     for i in range(n):
         p1 = points[i]
-        x1, y1 = p1
+        # x1, y1 = p1 Unecessary
         for j in range(i + 1, n):
             p2 = points[j]
-            x2, y2 = p2
+            # x2, y2 = p2 Unecessary
 
             weight = math.sqrt(sum((p1[k] - p2[k])**2 for k in range(4)))
 
@@ -156,6 +156,51 @@ def prim_mst(G):
 
     return mst_edges, total_weight
 
+def test_mst():
+    # Test case 1: Small graph, n=3
+    graph = {
+        (0, 0): [((1, 0), 1), ((2, 0), 2)],
+        (1, 0): [((0, 0), 1), ((2, 0), 1)],
+        (2, 0): [((0, 0), 2), ((1, 0), 1)]
+    }
+    mst, total_weight = prim_mst(graph)
+
+    # Check the number of edges in the MST
+    assert len(mst) == 2, f"Test failed! Expected 2 edges in MST, got {len(mst)}"
+
+    # Check if the total weight of MST is correct (expected weight is 2)
+    assert total_weight == 2, f"Test failed! Expected MST weight 2, got {total_weight}"
+
+    # Test case 2: Single edge (trivial graph, n=2)
+    graph = {
+        (0, 0): [((1, 1), 3)],
+        (1, 1): [((0, 0), 3)]
+    }
+    mst, total_weight = prim_mst(graph)
+
+    # Only one edge in the MST
+    assert len(mst) == 1, f"Test failed! Expected 1 edge in MST, got {len(mst)}"
+
+    # Check if the MST weight is correct
+    assert total_weight == 3, f"Test failed! Expected MST weight 3, got {total_weight}"
+
+    # Test case 3: Larger graph, n=4 (manually checked)
+    graph = {
+        (0, 0): [((1, 1), 1), ((2, 2), 2), ((3, 3), 3)],
+        (1, 1): [((0, 0), 1), ((2, 2), 1), ((3, 3), 2)],
+        (2, 2): [((0, 0), 2), ((1, 1), 1), ((3, 3), 1)],
+        (3, 3): [((0, 0), 3), ((1, 1), 2), ((2, 2), 1)],
+    }
+    mst, total_weight = prim_mst(graph)
+
+    # MST has to have exactly 3 edges for a graph with 4 vertices
+    assert len(mst) == 3, f"Test failed! Expected 3 edges in MST, got {len(mst)}"
+
+    # Expected total weight based on the manually calculated MST (edges: (0,0)-(1,1), (1,1)-(2,2), (2,2)-(3,3))
+    assert total_weight == 3, f"Test failed! Expected MST weight 3, got {total_weight}"
+
+    print("All tests passed successfully!")
+
 def main():
     sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     trials = 5
@@ -166,7 +211,7 @@ def main():
         for _ in range(trials):
             start = time.time()
 
-            graph = complete_weighted_graph(n)
+            graph = unit_cube_graph(n)
             mst, total_weight = prim_mst(graph)
 
             end = time.time()
@@ -175,6 +220,7 @@ def main():
         avg_time = total_time / trials
         print(f"n = {n:<6} | Average runtime over {trials} runs: {avg_time:.4f} seconds")
 
+# test_mst()
 main()
 
 

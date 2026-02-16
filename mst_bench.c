@@ -437,11 +437,11 @@ int main(void) {
             double start = now_seconds();
 
             /* Choose the graph generator you want: */
-            Graph *g = complete_weighted_graph(n);
-            /* Graph *g = hypercube_graph(n); */
-            /* Graph *g = unit_square_graph(n); */
-            /* Graph *g = unit_cube_graph(n); */
-            /* Graph *g = unit_hypercube_graph(n); */
+            /*Graph *g = complete_weighted_graph(n); */
+            /*Graph *g = hypercube_graph(n); */
+            /*Graph *g = unit_square_graph(n); */
+            /*Graph *g = unit_cube_graph(n); */
+            Graph *g = unit_hypercube_graph(n); 
 
             MstResult mst = prim_mst(g);
 
