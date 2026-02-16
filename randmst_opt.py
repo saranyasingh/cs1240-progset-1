@@ -4,18 +4,22 @@ import time
 
 class MinHeapDK:
     def __init__(self):
-        self.data = []           # list of (weight, vertex)
-        self.pos = {}            # maps vertex -> index in self.data
+        self.data = []       
+        # for mapping vertex to its position in the heap    
+        self.pos = {}           
 
     def push(self, vertex, weight):
         if vertex in self.pos:
+            # just decrease the key (if new weight is smaller) instead of creating a new key
             self.decrease_key(vertex, weight)
         else:
+            # push new vertex with weight
             i = len(self.data)
             self.data.append((weight, vertex))
             self.pos[vertex] = i
             self._bubble_up(i)
 
+    # decrease key for existing vertices than creating them again
     def decrease_key(self, vertex, new_weight):
         i = self.pos[vertex]
         old_weight, _ = self.data[i]
@@ -67,7 +71,7 @@ class MinHeapDK:
     def is_empty(self):
         return len(self.data) == 0
 
-
+'''
 def complete_weighted_graph(n):
     adj = {p: [] for p in range(n)}
 
@@ -78,7 +82,9 @@ def complete_weighted_graph(n):
                 adj[j].append((i, weight))
 
     return adj
+'''
 
+# keeps only the light edges, which is the edges we are more likely to use
 def complete_weighted_graph_pruned(n, C=2.0):
     adj = {p: [] for p in range(n)}
     k = C * math.log(n) / n  # threshold for edge weights
@@ -91,7 +97,7 @@ def complete_weighted_graph_pruned(n, C=2.0):
                 adj[j].append((i, weight))
 
     return adj
-
+'''
 def hypercube(n):
     adj = {p: [] for p in range(n)}
 
@@ -105,7 +111,6 @@ def hypercube(n):
                     adj[j].append((i, weight))
 
     return adj
-
 '''
 def hypercube_pruned(n, C=2.0):
     adj = {p: [] for p in range(n)}
@@ -120,7 +125,7 @@ def hypercube_pruned(n, C=2.0):
                     adj[i].append((j, weight))
                     adj[j].append((i, weight))
     return adj
-'''
+
 
 def hypercube_graph_pruned(n, C=0.7):
     """
@@ -148,6 +153,7 @@ def hypercube_graph_pruned(n, C=0.7):
 
     return adj
 
+    
 def unit_hypercube_graph_general(n, dim=2):
     """
     Generate n points uniformly at random in a d-dimensional unit hypercube.
@@ -155,6 +161,7 @@ def unit_hypercube_graph_general(n, dim=2):
     """
     points = [tuple(random.random() for _ in range(dim)) for _ in range(n)]
     return points
+
 
 def geometric_graph_pruned(n, dim=2, C=2.0):
     """
@@ -202,53 +209,6 @@ def prim_mst_decrease_key(G):
         for neighbor, w in G[v]:
             if neighbor not in visited:
                 heap.push(neighbor, w)  # decrease-key automatically handled
-
-    return mst_edges, total_weight
-
-def prim_array_dense(G):
-    """
-    Array-based Prim's algorithm for dense graphs.
-    G: adjacency dict {v: [(neighbor, weight), ...]}
-    Returns: list of MST edges [(u,v,w), ...], total_weight
-    """
-    n = len(G)
-    vertices = list(G.keys())
-    idx_map = {v: i for i, v in enumerate(vertices)}  # map vertex -> index
-
-    visited = [False] * n
-    min_edge = [float('inf')] * n
-    parent = [None] * n
-
-    # Start from the first vertex
-    min_edge[0] = 0
-    total_weight = 0
-    mst_edges = []
-
-    for _ in range(n):
-        # 1. Pick unvisited vertex with smallest min_edge
-        u_idx = -1
-        min_val = float('inf')
-        for i in range(n):
-            if not visited[i] and min_edge[i] < min_val:
-                min_val = min_edge[i]
-                u_idx = i
-
-        if u_idx == -1:
-            break  # all vertices visited
-
-        visited[u_idx] = True
-        total_weight += min_edge[u_idx]
-        u = vertices[u_idx]
-
-        if parent[u_idx] is not None:
-            mst_edges.append((parent[u_idx], u, min_edge[u_idx]))
-
-        # 2. Update neighbors
-        for v, w in G[u]:
-            v_idx = idx_map[v]
-            if not visited[v_idx] and w < min_edge[v_idx]:
-                min_edge[v_idx] = w
-                parent[v_idx] = u
 
     return mst_edges, total_weight
 
@@ -300,8 +260,7 @@ def prim_array_dense_geometric(points):
                     parent[v_idx] = u_idx
 
     return mst_edges, total_weight
-
-
+'''
 def test_mst():
     # Test case 1: Small graph, n=3
     graph = {
@@ -346,7 +305,40 @@ def test_mst():
     assert total_weight == 3, f"Test failed! Expected MST weight 3, got {total_weight}"
 
     print("All tests passed successfully!")
+'''
 
+def main():
+    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    trials = 5
+
+    for n in sizes:
+        total_time = 0
+
+        for _ in range(trials):
+            start = time.time()
+
+            points = unit_hypercube_graph_general(n, 2)
+            mst, total_weight = prim_array_dense_geometric(points)
+
+            points, adj = geometric_graph_pruned(n, dim=4, C=2.0)
+            mst_edges, total_weight = prim_mst_decrease_key(adj)
+
+            graph = hypercube_graph_pruned(n)
+            mst, total_weight = prim_mst_decrease_key(graph)
+
+            graph = complete_weighted_graph_pruned(n)
+            mst, total_weight = prim_mst_decrease_key(graph)
+
+            end = time.time()
+            total_time += (end - start)
+
+        avg_time = total_time / trials
+        print(f"{avg_time:.4f}")
+
+
+main()
+
+'''
 def test_pruned_mst():
 
     n = 16  # small test size for sanity check
@@ -363,38 +355,57 @@ def test_pruned_mst():
     assert len(mst_edges) == n-1, f"Hypercube MST incomplete, edges: {len(mst_edges)}"
 
     print("All pruning MST tests passed!")
-
-def main():
-    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
-    trials = 5
-
-    for n in sizes:
-        total_time = 0
-
-        for _ in range(trials):
-            start = time.time()
-
-            # points = unit_hypercube_graph_general(n, 2)
-            # mst, total_weight = prim_array_dense_geometric(points)
-
-            points, adj = geometric_graph_pruned(n, dim=4, C=2.0)
-            mst_edges, total_weight = prim_mst_decrease_key(adj)
+    
+'''
 
 
-            # graph = hypercube_graph_pruned(n)
-            # mst, total_weight = prim_mst_decrease_key(graph)
+'''
+def prim_array_dense(G):
+    """
+    Array-based Prim's algorithm for dense graphs.
+    G: adjacency dict {v: [(neighbor, weight), ...]}
+    Returns: list of MST edges [(u,v,w), ...], total_weight
+    """
+    n = len(G)
+    vertices = list(G.keys())
+    idx_map = {v: i for i, v in enumerate(vertices)}  # map vertex -> index
 
-            # graph = complete_weighted_graph_pruned(n)
-            # mst, total_weight = prim_mst_decrease_key(graph)
+    visited = [False] * n
+    min_edge = [float('inf')] * n
+    parent = [None] * n
 
-            end = time.time()
-            total_time += (end - start)
+    # Start from the first vertex
+    min_edge[0] = 0
+    total_weight = 0
+    mst_edges = []
 
-        avg_time = total_time / trials
-        print(f"{avg_time:.4f}")
+    for _ in range(n):
+        # 1. Pick unvisited vertex with smallest min_edge
+        u_idx = -1
+        min_val = float('inf')
+        for i in range(n):
+            if not visited[i] and min_edge[i] < min_val:
+                min_val = min_edge[i]
+                u_idx = i
 
+        if u_idx == -1:
+            break  # all vertices visited
 
-# test_pruned_mst()
-main()
+        visited[u_idx] = True
+        total_weight += min_edge[u_idx]
+        u = vertices[u_idx]
 
+        if parent[u_idx] is not None:
+            mst_edges.append((parent[u_idx], u, min_edge[u_idx]))
+
+        # 2. Update neighbors
+        for v, w in G[u]:
+            v_idx = idx_map[v]
+            if not visited[v_idx] and w < min_edge[v_idx]:
+                min_edge[v_idx] = w
+                parent[v_idx] = u
+
+    return mst_edges, total_weight
+
+'''
 
