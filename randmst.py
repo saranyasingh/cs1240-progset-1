@@ -1,6 +1,7 @@
 import random 
 import math
 import time
+import sys
 
 class MinHeapDK:
     def __init__(self):
@@ -109,23 +110,67 @@ def hypercube_pruned(n, C=0.7):
 
     return adj
 
-
 def geometric_graph_pruned(n, dim=2, C=2.0):
-    points = [tuple(random.random() for _ in range(dim)) for _ in range(n)]
+    rand = random.random
+    sqrt = math.sqrt
+    log = math.log
+
+    points = [tuple(rand() for _ in range(dim)) for _ in range(n)]
     adj = {p: [] for p in points}
 
-    k = C * ((math.log(n) / n) ** (1.0 / dim))  # max edge length to include
+    k = C * ((log(n) / n) ** (1.0 / dim))
+    k2 = k * k  # compare squared distances for efficiency
 
-    for i in range(n):
-        u = points[i]
-        for j in range(i + 1, n):
-            v = points[j]
-            weight = math.sqrt(sum((u[d]-v[d])**2 for d in range(dim)))
-            if weight <= k:  # only keep "short" edges
-                adj[u].append((v, weight))
-                adj[v].append((u, weight))
+    if dim == 2:
+        for i in range(n):
+            ux, uy = points[i]
+            u = points[i]
+            for j in range(i + 1, n):
+                vx, vy = points[j]
+                dx = ux - vx
+                dy = uy - vy
+                dist2 = dx*dx + dy*dy
+                if dist2 <= k2:
+                    w = sqrt(dist2)  # sqrt only for kept edges
+                    v = points[j]
+                    adj[u].append((v, w))
+                    adj[v].append((u, w))
+
+    elif dim == 3:
+        for i in range(n):
+            ux, uy, uz = points[i]
+            u = points[i]
+            for j in range(i + 1, n):
+                vx, vy, vz = points[j]
+                dx = ux - vx
+                dy = uy - vy
+                dz = uz - vz
+                dist2 = dx*dx + dy*dy + dz*dz
+                if dist2 <= k2:
+                    w = sqrt(dist2)
+                    v = points[j]
+                    adj[u].append((v, w))
+                    adj[v].append((u, w))
+
+    elif dim == 4:
+        for i in range(n):
+            u0, u1, u2, u3 = points[i]
+            u = points[i]
+            for j in range(i + 1, n):
+                v0, v1, v2, v3 = points[j]
+                d0 = u0 - v0
+                d1 = u1 - v1
+                d2 = u2 - v2
+                d3 = u3 - v3
+                dist2 = d0*d0 + d1*d1 + d2*d2 + d3*d3
+                if dist2 <= k2:
+                    w = sqrt(dist2)
+                    v = points[j]
+                    adj[u].append((v, w))
+                    adj[v].append((u, w))
 
     return points, adj
+
 
 def prim_mst_decrease_key(G):
     n = len(G)
@@ -228,6 +273,7 @@ def weight_testing():
                 graph = complete_weighted_graph_pruned(n)
 
             mst, weight = prim_mst_decrease_key(graph)
+            
             total_weight += weight
 
         avg_weight = total_weight / trials
@@ -239,9 +285,7 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             graph = hypercube_pruned(n)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = hypercube_pruned(n)
+           
             mst, weight = prim_mst_decrease_key(graph)
             total_weight += weight
 
@@ -253,9 +297,7 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             points, graph = geometric_graph_pruned(n, dim=2, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                points, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+
             mst, weight = prim_mst_decrease_key(graph)
             total_weight += weight
 
@@ -267,9 +309,7 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+            
             mst, weight = prim_mst_decrease_key(graph)
             total_weight += weight
 
@@ -281,10 +321,8 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
-            "calling prim now"
+         
+        
             mst, weight = prim_mst_decrease_key(graph)
             print(f"Unit hypercube for {n}: {weight:.4f}")
             total_weight += weight
@@ -293,38 +331,39 @@ def weight_testing():
         print(f"Average unit hypercube for {n}: {avg_weight:.4f}")
 
 def rand_mst(points, trials, dimensions):
+    
     total_weight = 0
     for _ in range(trials):
         if dimensions == 0:
             graph = complete_weighted_graph_pruned(points)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = complete_weighted_graph_pruned(points)
+           
         elif dimensions == 1:
             graph = hypercube_pruned(points)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = hypercube_pruned(points)
+           
         elif dimensions == 2:
-            graph = geometric_graph_pruned(points, dim=2, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = geometric_graph_pruned(points, dim=2, C=2.0)
+            _, graph = geometric_graph_pruned(points, dim=2, C=2.0)
+            
         elif dimensions == 3:
-            graph = geometric_graph_pruned(points, dim=3, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = geometric_graph_pruned(points, dim=3, C=2.0)
+            _, graph = geometric_graph_pruned(points, dim=3, C=2.0)
+           
         else:
-            graph = geometric_graph_pruned(points, dim=4, C=2.0)
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = geometric_graph_pruned(points, dim=4, C=2.0)
+            _, graph = geometric_graph_pruned(points, dim=4, C=2.0)
 
+        
         mst, weight = prim_mst_decrease_key(graph)
+
         total_weight += weight
 
     avg_weight = total_weight / trials
+    
     return avg_weight, points, trials, dimensions
     
-rand_mst(128, 5, 0)
+
+if __name__ == "__main__":
+    points = int(sys.argv[2])
+    trials = int(sys.argv[3])
+    dimensions = int(sys.argv[4])
+
+    avg, points, trials, dimensions = rand_mst(points, trials, dimensions)
+
+    print(f"{avg} {points} {trials} {dimensions}")
