@@ -379,9 +379,7 @@ def rand_mst(points, trials, dimensions):
                 _, graph = geometric_graph_pruned(points, dim=4, C=2.0)
 
             mst, weight = prim_mst_decrease_key(graph)
-            
          
-
         total_weight += weight
 
     avg_weight = total_weight / trials
