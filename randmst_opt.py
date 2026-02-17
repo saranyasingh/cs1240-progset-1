@@ -287,7 +287,7 @@ def connectivity_tests():
 '''
 
 def main():
-    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
+    sizes = [32768]
     trials = 5
     
     '''
@@ -306,7 +306,7 @@ def main():
 
         avg_weight = total_weight / trials
         print(f"Complete weighted for {n}: {avg_weight:.4f}")
-
+    '''
     # 2) Hypercube
     for n in sizes:
         total_weight = 0
@@ -334,7 +334,7 @@ def main():
 
         avg_weight = total_weight / trials
         print(f"Unit square for {n}: {avg_weight:.4f}")
-
+    
     # 4) Unit cube (3D)
     for n in sizes:
         total_weight = 0
@@ -348,7 +348,7 @@ def main():
 
         avg_weight = total_weight / trials
         print(f"Unit cube for {n}: {avg_weight:.4f}")
-
+'''
     # 5) Unit hypercube (4D)
     for n in sizes:
         total_weight = 0
@@ -357,11 +357,13 @@ def main():
             # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
             while not is_connected(graph):
                 points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+            "calling prim now"
             mst, weight = prim_mst_decrease_key(graph)
+            print(f"Unit hypercube for {n}: {weight:.4f}")
             total_weight += weight
 
         avg_weight = total_weight / trials
-        print(f"Unit hypercube for {n}: {avg_weight:.4f}")
+        print(f"Average unit hypercube for {n}: {avg_weight:.4f}")
 
 main()
 
