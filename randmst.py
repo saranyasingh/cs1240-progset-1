@@ -267,12 +267,11 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             graph = complete_weighted_graph_pruned(n)
-
-            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
-            while not is_connected(graph):
-                graph = complete_weighted_graph_pruned(n)
-
             mst, weight = prim_mst_decrease_key(graph)
+
+            while len(mst) != n - 1:
+                graph = complete_weighted_graph_pruned(n)
+                mst, weight = prim_mst_decrease_key(graph)
             
             total_weight += weight
 
@@ -285,8 +284,11 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             graph = hypercube_pruned(n)
-           
             mst, weight = prim_mst_decrease_key(graph)
+            while len(mst) != n - 1:
+                graph = hypercube_pruned(n)
+                mst, weight = prim_mst_decrease_key(graph)
+
             total_weight += weight
 
         avg_weight = total_weight / trials
@@ -296,9 +298,13 @@ def weight_testing():
     for n in sizes:
         total_weight = 0
         for _ in range(trials):
-            points, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+            _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
 
             mst, weight = prim_mst_decrease_key(graph)
+            while len(mst) != n - 1:
+                _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+                mst, weight = prim_mst_decrease_key(graph)
+
             total_weight += weight
 
         avg_weight = total_weight / trials
@@ -309,6 +315,9 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+            while len(mst) != n - 1:
+                _, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+                mst, weight = prim_mst_decrease_key(graph)
             
             mst, weight = prim_mst_decrease_key(graph)
             total_weight += weight
@@ -321,8 +330,11 @@ def weight_testing():
         total_weight = 0
         for _ in range(trials):
             points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+            
+            while len(mst) != n - 1:
+                _, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+                mst, weight = prim_mst_decrease_key(graph)
          
-        
             mst, weight = prim_mst_decrease_key(graph)
             print(f"Unit hypercube for {n}: {weight:.4f}")
             total_weight += weight
@@ -351,6 +363,24 @@ def rand_mst(points, trials, dimensions):
 
         
         mst, weight = prim_mst_decrease_key(graph)
+        while len(mst) != points - 1:
+            if dimensions == 0:
+                graph = complete_weighted_graph_pruned(points)
+            elif dimensions == 1:
+                graph = hypercube_pruned(points)
+            
+            elif dimensions == 2:
+                _, graph = geometric_graph_pruned(points, dim=2, C=2.0)
+                
+            elif dimensions == 3:
+                _, graph = geometric_graph_pruned(points, dim=3, C=2.0)
+            
+            else:
+                _, graph = geometric_graph_pruned(points, dim=4, C=2.0)
+
+            mst, weight = prim_mst_decrease_key(graph)
+            
+         
 
         total_weight += weight
 
@@ -367,3 +397,7 @@ if __name__ == "__main__":
     avg, points, trials, dimensions = rand_mst(points, trials, dimensions)
 
     print(f"{avg} {points} {trials} {dimensions}")
+
+'''
+weight_testing()
+'''
