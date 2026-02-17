@@ -2,225 +2,330 @@ import random
 import math
 import time
 
-class MinHeap:
+class MinHeapDK:
     def __init__(self):
-        self.data = []
+        self.data = []       
+        # for mapping vertex to its position in the heap    
+        self.pos = {}           
 
-    def push(self, item): # O(logn) time complexity
-        self.data.append(item)
-        i = len(self.data) - 1
+    def push(self, vertex, weight):
+        if vertex in self.pos:
+            # just decrease the key (if new weight is smaller) instead of creating a new key
+            self.decrease_key(vertex, weight)
+        else:
+            # push new vertex with weight
+            i = len(self.data)
+            self.data.append((weight, vertex))
+            self.pos[vertex] = i
+            self._bubble_up(i)
 
-        # bubble up 
+    # decrease key for existing vertices than creating them again
+    def decrease_key(self, vertex, new_weight):
+        i = self.pos[vertex]
+        old_weight, _ = self.data[i]
+        if new_weight >= old_weight:
+            return  # no need to decrease
+        self.data[i] = (new_weight, vertex)
+        self._bubble_up(i)
+
+    def pop(self):
+        if not self.data:
+            raise IndexError("pop from empty heap")
+        root = self.data[0]
+        last = self.data.pop()
+        del self.pos[root[1]]
+        if self.data:
+            self.data[0] = last
+            self.pos[last[1]] = 0
+            self._bubble_down(0)
+        return root
+
+    def _bubble_up(self, i):
         while i > 0:
             parent = (i - 1) // 2
-            if self.data[i] < self.data[parent]:
-                self.data[i], self.data[parent] = self.data[parent], self.data[i]
+            if self.data[i][0] < self.data[parent][0]:
+                self._swap(i, parent)
                 i = parent
             else:
                 break
 
-    def pop(self): # O(logn) time complexity
-        self.data[0], self.data[len(self.data) - 1] = self.data[len(self.data) - 1], self.data[0]
-        item = self.data.pop()
-        i = 0
+    def _bubble_down(self, i):
         n = len(self.data)
-
-        # bubble down 
         while True:
             left = 2*i + 1
             right = 2*i + 2
             smallest = i
-
-            if left < n and self.data[left] < self.data[smallest]:
+            if left < n and self.data[left][0] < self.data[smallest][0]:
                 smallest = left
-            if right < n and self.data[right] < self.data[smallest]:
+            if right < n and self.data[right][0] < self.data[smallest][0]:
                 smallest = right
-
             if smallest == i:
                 break
-
-            self.data[i], self.data[smallest] = self.data[smallest], self.data[i]
+            self._swap(i, smallest)
             i = smallest
-        return item
+
+    def _swap(self, i, j):
+        self.pos[self.data[i][1]], self.pos[self.data[j][1]] = j, i
+        self.data[i], self.data[j] = self.data[j], self.data[i]
 
     def is_empty(self):
         return len(self.data) == 0
 
+# ------ GRAPH IMPELEMENTATION -------
 
-def complete_weighted_graph(n):
+# keeps only the light edges, which is the edges we are more likely to use
+def complete_weighted_graph_pruned(n, C=2.0):
     adj = {p: [] for p in range(n)}
+    k = C * math.log(n) / n  # threshold for edge weights
 
     for i in range(n):
         for j in range(i + 1, n):
-                weight = random.uniform(0, 1)
+            weight = random.uniform(0, 1)
+            if weight <= k:
                 adj[i].append((j, weight))
                 adj[j].append((i, weight))
 
     return adj
 
-def hypercube(n):
-    adj = {p: [] for p in range(n)}
 
+def hypercube_pruned(n, C=0.7):
+    import random
+    import math
+
+    adj = {i: [] for i in range(n)}
+
+    k = C  # threshold for pruning (approx 0.7 works for MST)
+    
     for i in range(n):
-        for j in range(i + 1, n):
-                d = j - i
-                # bit manipulation to check if its a power of 2
-                if (d & (d - 1) == 0):
-                    weight = random.uniform(0, 1)
+        power = 1
+        while power < n:
+            j = i + power
+            if j < n:
+                weight = random.uniform(0, 1)
+                if weight <= k:
                     adj[i].append((j, weight))
                     adj[j].append((i, weight))
+            power *= 2
 
     return adj
 
-def unit_square_graph(n):
-    points = [(random.random(), random.random()) for _ in range(n)]
+
+def geometric_graph_pruned(n, dim=2, C=2.0):
+    points = [tuple(random.random() for _ in range(dim)) for _ in range(n)]
     adj = {p: [] for p in points}
 
-    for i in range(n):
-        p1 = points[i]
-        x1, y1 = p1
-        for j in range(i + 1, n):
-            p2 = points[j]
-            x2, y2 = p2
-
-            weight = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-
-            adj[p1].append((p2, weight))
-            adj[p2].append((p1, weight))
-
-    return adj
-
-def unit_cube_graph(n):
-    points = [tuple(random.random() for _ in range(3)) for _ in range(n)]
-    adj = {p: [] for p in points}
+    k = C * ((math.log(n) / n) ** (1.0 / dim))  # max edge length to include
 
     for i in range(n):
-        p1 = points[i]
-        # x1, y1 = p1 Unecessary
+        u = points[i]
         for j in range(i + 1, n):
-            p2 = points[j]
-            # x2, y2 = p2 # 
+            v = points[j]
+            weight = math.sqrt(sum((u[d]-v[d])**2 for d in range(dim)))
+            if weight <= k:  # only keep "short" edges
+                adj[u].append((v, weight))
+                adj[v].append((u, weight))
 
-            weight = math.sqrt(sum((p1[k] - p2[k])**2 for k in range(3)))
+    return points, adj
 
+def prim_mst_decrease_key(G):
+    n = len(G)
+    start = next(iter(G))  # pick any starting vertex
+    visited = set()
+    visited.add(start)
 
-            adj[p1].append((p2, weight))
-            adj[p2].append((p1, weight))
-
-    return adj
-
-def unit_hypercube_graph(n):
-    points = [tuple(random.random() for _ in range(4)) for _ in range(n)]
-    adj = {p: [] for p in points}
-
-    for i in range(n):
-        p1 = points[i]
-        # x1, y1 = p1 Unecessary
-        for j in range(i + 1, n):
-            p2 = points[j]
-            # x2, y2 = p2 Unecessary
-
-            weight = math.sqrt(sum((p1[k] - p2[k])**2 for k in range(4)))
-
-
-            adj[p1].append((p2, weight))
-            adj[p2].append((p1, weight))
-
-    return adj
-
-def prim_mst(G):
-    start = next(iter(G)) 
-    visited = {start}
-    heap = MinHeap()
-
+    heap = MinHeapDK()
     mst_edges = []
     total_weight = 0
 
-    # Add initial edges for the start vertex
+    # Initialize distances for neighbors of start
     for neighbor, weight in G[start]:
-        heap.push((weight, start, neighbor))
+        heap.push(neighbor, weight)
 
-    while not heap.is_empty() and len(visited) < len(G):
-        weight, u, v = heap.pop()
-
+    while not heap.is_empty():
+        weight, v = heap.pop()
         if v in visited:
             continue
-
         visited.add(v)
-        mst_edges.append((u, v, weight))
         total_weight += weight
+        mst_edges.append((v, weight)) 
 
         for neighbor, w in G[v]:
             if neighbor not in visited:
-                heap.push((w, v, neighbor))
+                heap.push(neighbor, w)  # decrease-key automatically handled
 
     return mst_edges, total_weight
 
-def test_mst():
-    # Test case 1: Small graph, n=3
-    graph = {
-        (0, 0): [((1, 0), 1), ((2, 0), 2)],
-        (1, 0): [((0, 0), 1), ((2, 0), 1)],
-        (2, 0): [((0, 0), 2), ((1, 0), 1)]
-    }
-    mst, total_weight = prim_mst(graph)
+def prim_array_dense_geometric(points):
+    n = len(points)
+    visited = [False] * n
+    min_edge = [float('inf')] * n
+    parent = [None] * n
 
-    # Check the number of edges in the MST
-    assert len(mst) == 2, f"Test failed! Expected 2 edges in MST, got {len(mst)}"
+    # Start from vertex 0
+    min_edge[0] = 0
+    total_weight = 0
+    mst_edges = []
 
-    # Check if the total weight of MST is correct (expected weight is 2)
-    assert total_weight == 2, f"Test failed! Expected MST weight 2, got {total_weight}"
+    for _ in range(n):
+        # Pick unvisited vertex with smallest min_edge
+        u_idx = -1
+        min_val = float('inf')
+        for i in range(n):
+            if not visited[i] and min_edge[i] < min_val:
+                min_val = min_edge[i]
+                u_idx = i
 
-    # Test case 2: Single edge (trivial graph, n=2)
-    graph = {
-        (0, 0): [((1, 1), 3)],
-        (1, 1): [((0, 0), 3)]
-    }
-    mst, total_weight = prim_mst(graph)
+        if u_idx == -1:
+            break
 
-    # Only one edge in the MST
-    assert len(mst) == 1, f"Test failed! Expected 1 edge in MST, got {len(mst)}"
+        visited[u_idx] = True
+        # total_weight += min_edge[u_idx]
+        total_weight += math.sqrt(min_edge[u_idx])
+        if parent[u_idx] is not None:
+            mst_edges.append((parent[u_idx], u_idx, min_edge[u_idx]))
 
-    # Check if the MST weight is correct
-    assert total_weight == 3, f"Test failed! Expected MST weight 3, got {total_weight}"
+        u = points[u_idx]
 
-    # Test case 3: Larger graph, n=4 (manually checked)
-    graph = {
-        (0, 0): [((1, 1), 1), ((2, 2), 2), ((3, 3), 3)],
-        (1, 1): [((0, 0), 1), ((2, 2), 1), ((3, 3), 2)],
-        (2, 2): [((0, 0), 2), ((1, 1), 1), ((3, 3), 1)],
-        (3, 3): [((0, 0), 3), ((1, 1), 2), ((2, 2), 1)],
-    }
-    mst, total_weight = prim_mst(graph)
+        # Update min_edge for all unvisited vertices on the fly
+        for v_idx in range(n):
+            if not visited[v_idx]:
+                v = points[v_idx]
+                # Euclidean distance in d-dimensions
+                # weight = math.sqrt(sum((u[k]-v[k])**2 for k in range(len(u))))
+                weight = sum((u[k]-v[k])**2 for k in range(len(u)))
+                if weight < min_edge[v_idx]:
+                    min_edge[v_idx] = weight
+                    parent[v_idx] = u_idx
 
-    # MST has to have exactly 3 edges for a graph with 4 vertices
-    assert len(mst) == 3, f"Test failed! Expected 3 edges in MST, got {len(mst)}"
+    return mst_edges, total_weight
 
-    # Expected total weight based on the manually calculated MST (edges: (0,0)-(1,1), (1,1)-(2,2), (2,2)-(3,3))
-    assert total_weight == 3, f"Test failed! Expected MST weight 3, got {total_weight}"
+# for testing pruning connectivity 
+def is_connected(adj):
+    start = next(iter(adj))
+    seen = {start}
+    stack = [start]
+    while stack:
+        u = stack.pop()
+        for v, _w in adj[u]:
+            if v not in seen:
+                seen.add(v)
+                stack.append(v)
+    return len(seen) == len(adj)
 
-    print("All tests passed successfully!")
-
-def main():
+def weight_testing():
     sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     trials = 5
+    
 
+    # Complete weighted
     for n in sizes:
-        total_time = 0
-
+        total_weight = 0
         for _ in range(trials):
-            start = time.time()
+            graph = complete_weighted_graph_pruned(n)
 
-            graph = unit_cube_graph(n)
-            mst, total_weight = prim_mst(graph)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = complete_weighted_graph_pruned(n)
 
-            end = time.time()
-            total_time += (end - start)
+            mst, weight = prim_mst_decrease_key(graph)
+            total_weight += weight
 
-        avg_time = total_time / trials
-        print(f"n = {n:<6} | Average runtime over {trials} runs: {avg_time:.4f} seconds")
+        avg_weight = total_weight / trials
+        print(f"Complete weighted for {n}: {avg_weight:.4f}")
+    
+    sizes_hyper = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
+    # Hypercube
+    for n in sizes_hyper:
+        total_weight = 0
+        for _ in range(trials):
+            graph = hypercube_pruned(n)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = hypercube_pruned(n)
+            mst, weight = prim_mst_decrease_key(graph)
+            total_weight += weight
 
-# test_mst()
-main()
+        avg_weight = total_weight / trials
+        print(f"Hypercube for {n}: {avg_weight:.4f}")
+    
+    # Unit square
+    for n in sizes:
+        total_weight = 0
+        for _ in range(trials):
+            points, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                points, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+            mst, weight = prim_mst_decrease_key(graph)
+            total_weight += weight
 
+        avg_weight = total_weight / trials
+        print(f"Unit square for {n}: {avg_weight:.4f}")
+    
+    # Unit cube 
+    for n in sizes:
+        total_weight = 0
+        for _ in range(trials):
+            points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+            mst, weight = prim_mst_decrease_key(graph)
+            total_weight += weight
 
+        avg_weight = total_weight / trials
+        print(f"Unit cube for {n}: {avg_weight:.4f}")
+
+    # Unit hypercube
+    for n in sizes:
+        total_weight = 0
+        for _ in range(trials):
+            points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+            "calling prim now"
+            mst, weight = prim_mst_decrease_key(graph)
+            print(f"Unit hypercube for {n}: {weight:.4f}")
+            total_weight += weight
+
+        avg_weight = total_weight / trials
+        print(f"Average unit hypercube for {n}: {avg_weight:.4f}")
+
+def rand_mst(points, trials, dimensions):
+    total_weight = 0
+    for _ in range(trials):
+        if dimensions == 0:
+            graph = complete_weighted_graph_pruned(points)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = complete_weighted_graph_pruned(points)
+        elif dimensions == 1:
+            graph = hypercube_pruned(points)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = hypercube_pruned(points)
+        elif dimensions == 2:
+            graph = geometric_graph_pruned(points, dim=2, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = geometric_graph_pruned(points, dim=2, C=2.0)
+        elif dimensions == 3:
+            graph = geometric_graph_pruned(points, dim=3, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = geometric_graph_pruned(points, dim=3, C=2.0)
+        else:
+            graph = geometric_graph_pruned(points, dim=4, C=2.0)
+            # only run the test if it is connected which accounts for any randomness in pruning resulting in non-connectivity
+            while not is_connected(graph):
+                graph = geometric_graph_pruned(points, dim=4, C=2.0)
+
+        mst, weight = prim_mst_decrease_key(graph)
+        total_weight += weight
+
+    avg_weight = total_weight / trials
+    print(f"Average weight {points}: {avg_weight:.4f}")
+    return avg_weight
+    
+rand_mst(128, 5, 0)
