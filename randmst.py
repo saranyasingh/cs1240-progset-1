@@ -325,7 +325,6 @@ def rand_mst(points, trials, dimensions):
         total_weight += weight
 
     avg_weight = total_weight / trials
-    print(f"Average weight {points}: {avg_weight:.4f}")
-    return avg_weight
+    return avg_weight, points, trials, dimensions
     
 rand_mst(128, 5, 0)
