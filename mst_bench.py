@@ -90,6 +90,9 @@ def complete_weighted_graph_pruned(n, C=2.0):
 
 
 def hypercube_pruned(n, C=0.7):
+    import random
+    import math
+
     adj = {i: [] for i in range(n)}
 
     k = C  # threshold for pruning (approx 0.7 works for MST)
@@ -261,6 +264,7 @@ def weight_testing():
 
     # Complete weighted
     for n in sizes:
+        start = time.time()
         total_weight = 0
         for _ in range(trials):
             graph = complete_weighted_graph_pruned(n)
@@ -273,11 +277,14 @@ def weight_testing():
             total_weight += weight
 
         avg_weight = total_weight / trials
-        print(f"Complete weighted for {n}: {avg_weight:.4f}")
+        end = time.time()
+        elapsed = end - start
+        print(f"Complete weighted for {n}: {avg_weight:.4f} (Elapsed: {elapsed:.2f} seconds)")
     
     sizes_hyper = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
     # Hypercube
     for n in sizes_hyper:
+        
         total_weight = 0
         for _ in range(trials):
             graph = hypercube_pruned(n)
@@ -289,12 +296,15 @@ def weight_testing():
             total_weight += weight
 
         avg_weight = total_weight / trials
-        print(f"Hypercube for {n}: {avg_weight:.4f}")
+        end = time.time()
+        elapsed = end - start
+        print(f"Hypercube for {n}: {avg_weight:.4f} (Elapsed: {elapsed:.2f} seconds)")
     
     # Unit square
     for n in sizes:
         total_weight = 0
         for _ in range(trials):
+            
             _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
 
             mst, weight = prim_mst_decrease_key(graph)
@@ -383,16 +393,76 @@ def rand_mst(points, trials, dimensions):
     
     return avg_weight, points, trials, dimensions
     
+def timing_test():
+    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    sizes_hyper = [128, 256, 512, 1024, 2048, 4096, 8192,
+                   16384, 32768, 65536, 131072, 262144]
 
-if __name__ == "__main__":
-    points = int(sys.argv[2])
-    trials = int(sys.argv[3])
-    dimensions = int(sys.argv[4])
+    print("\n===== TIMING RESULTS =====\n")
 
-    avg, points, trials, dimensions = rand_mst(points, trials, dimensions)
+    # --------------------
+    # Complete Weighted
+    # --------------------
+    print("Complete Weighted Graph:")
+    for n in sizes:
+        start = time.perf_counter()
 
-    print(f"{avg} {points} {trials} {dimensions}")
+        graph = complete_weighted_graph_pruned(n)
+        mst, weight = prim_mst_decrease_key(graph)
 
-'''
-weight_testing()
-'''
+        end = time.perf_counter()
+        print(f"n={n:<7} Time: {end - start:.4f} sec")
+
+    # --------------------
+    # Hypercube
+    # --------------------
+    print("\nHypercube Graph:")
+    for n in sizes_hyper:
+        start = time.perf_counter()
+
+        graph = hypercube_pruned(n)
+        mst, weight = prim_mst_decrease_key(graph)
+
+        end = time.perf_counter()
+        print(f"n={n:<7} Time: {end - start:.4f} sec")
+
+    # --------------------
+    # Unit Square (2D)
+    # --------------------
+    print("\nUnit Square (2D):")
+    for n in sizes:
+        start = time.perf_counter()
+
+        _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
+        mst, weight = prim_mst_decrease_key(graph)
+
+        end = time.perf_counter()
+        print(f"n={n:<7} Time: {end - start:.4f} sec")
+
+    # --------------------
+    # Unit Cube (3D)
+    # --------------------
+    print("\nUnit Cube (3D):")
+    for n in sizes:
+        start = time.perf_counter()
+
+        _, graph = geometric_graph_pruned(n, dim=3, C=2.0)
+        mst, weight = prim_mst_decrease_key(graph)
+
+        end = time.perf_counter()
+        print(f"n={n:<7} Time: {end - start:.4f} sec")
+
+    # --------------------
+    # Unit Hypercube (4D)
+    # --------------------
+    print("\nUnit Hypercube (4D):")
+    for n in sizes:
+        start = time.perf_counter()
+
+        _, graph = geometric_graph_pruned(n, dim=4, C=2.0)
+        mst, weight = prim_mst_decrease_key(graph)
+
+        end = time.perf_counter()
+        print(f"n={n:<7} Time: {end - start:.4f} sec")
+
+timing_test()

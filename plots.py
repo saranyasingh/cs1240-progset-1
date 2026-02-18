@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Complete Weighted
 n_complete = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
-w_complete = [1.1387, 1.2319, 1.1867, 1.19, 1.209, 1.1996, 1.2018, 1.21, 1.1998]
+w_complete = [1.1758, 1.1575, 1.1997, 1.1965, 1.1993, 1.1996, 1.2032, 1.21, 1.1998]
 
 # Hypercube
 n_hyper = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
@@ -38,6 +38,9 @@ def plot_one(x, y, title, xlog=True, ylog=False):
         plt.xscale("log")
     if ylog:
         plt.yscale("log")
+
+    plt.ylim(min(y) * 0.75, max(y) * 1.3)
+
     plt.tight_layout()
 
     plt.show()
