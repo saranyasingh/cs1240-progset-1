@@ -35,7 +35,7 @@ xlog2x = x_vals * (np.log2(x_vals) ** 2)
 x_vals = np.array(hypercube_n)
 
 # Compute x^2 + x log^2 x
-x2_plus_xlog2x = x_vals**2 + x_vals * (np.log2(x_vals) ** 2)
+x2_plus_xlog2x = x_vals * (np.log2(x_vals) ** 2)
 
 # Scale so it aligns with hypercube at largest n
 scale = hypercube_t[-1] / x2_plus_xlog2x[-1]

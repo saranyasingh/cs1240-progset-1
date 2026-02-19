@@ -21,8 +21,8 @@ hyper4d_t = [0.6767, 0.0123, 0.0415, 0.1651, 0.8388, 4.2470, 20.7915, 107.0295, 
 #   hypercube_n = [...]
 #   hypercube_t = [...]
 # ----------------------------
-x = np.array(sq2d_n, dtype=float)
-y = np.array(sq2d_t, dtype=float)
+x = np.array(hyper4d_n, dtype=float)
+y = np.array(hyper4d_t, dtype=float)
 
 # ----------------------------
 # Helpers
@@ -38,12 +38,6 @@ def fit_scale_only(fx, y):
     yhat = a * fx
     return a, yhat, r2(y, yhat)
 
-def fit_scale_plus_intercept(fx, y):
-    """Fit y ≈ a * fx + b."""
-    A = np.column_stack([fx, np.ones_like(fx)])
-    a, b = np.linalg.lstsq(A, y, rcond=None)[0]
-    yhat = a * fx + b
-    return float(a), float(b), yhat, r2(y, yhat)
 
 # ----------------------------
 # Build candidate model features
@@ -52,26 +46,16 @@ log2x = np.log2(x)
 
 f_n_log2_sq = x * (log2x**2)                 # n log^2 n
 f_n2_plus_n_log2_sq = x**2 + x * (log2x**2)  # n^2 + n log^2 n
+f_n = x**2
 
 # ----------------------------
 # Fit both models (choose one: scale-only or scale+intercept)
 # ----------------------------
-USE_INTERCEPT = False  # set True if you want y ≈ a*f(x) + b
 
-if USE_INTERCEPT:
-    a1, b1, yhat1, r2_1 = fit_scale_plus_intercept(f_n_log2_sq, y)
-    a2, b2, yhat2, r2_2 = fit_scale_plus_intercept(f_n2_plus_n_log2_sq, y)
-    print("Model 1: y = a*(n log^2 n) + b")
-    print(f"  a={a1:.6g}, b={b1:.6g}, R^2={r2_1:.6f}")
-    print("Model 2: y = a*(n^2 + n log^2 n) + b")
-    print(f"  a={a2:.6g}, b={b2:.6g}, R^2={r2_2:.6f}")
-else:
-    a1, yhat1, r2_1 = fit_scale_only(f_n_log2_sq, y)
-    a2, yhat2, r2_2 = fit_scale_only(f_n2_plus_n_log2_sq, y)
-    print("Model 1: y = a*(n log^2 n)")
-    print(f"  a={a1:.6g}, R^2={r2_1:.6f}")
-    print("Model 2: y = a*(n^2 + n log^2 n)")
-    print(f"  a={a2:.6g}, R^2={r2_2:.6f}")
+a1, yhat1, r2_1 = fit_scale_only(f_n, y)
+
+print("Model: y = a*(n log^2 n)")
+print(f"  a={a1:.6g}, R^2={r2_1:.6f}")
 
 # ----------------------------
 # Plot data + fits
@@ -79,14 +63,14 @@ else:
 plt.figure()
 plt.plot(x, y, "o-", label="data")
 
-plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,n\log_2^2 n$ (R$^2$={r2_1:.3f})")
-plt.plot(x, yhat2, "--", linewidth=2, label=fr"$a\,(n^2+n\log_2^2 n)$ (R$^2$={r2_2:.3f})")
+plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,n^2$ (R$^2$={r2_1:.3f})")
+# plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,(n^2+n\log_2^2 n)$ (R$^2$={r2_1:.3f})")
 
 plt.xscale("log")
 plt.yscale("log")  # timing plots usually look best log-log
 plt.xlabel("n")
 plt.ylabel("time")
-plt.title("Complete weighted timing: model fits")
+plt.title("Unit hypercube timing")
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -95,7 +79,5 @@ plt.show()
 # Quick residual diagnostics
 # ----------------------------
 res1 = y - yhat1
-res2 = y - yhat2
 print("\nResidual summary:")
 print(f"  Model 1: mean={np.mean(res1):.6g}, std={np.std(res1, ddof=1):.6g}, max|res|={np.max(np.abs(res1)):.6g}")
-print(f"  Model 2: mean={np.mean(res2):.6g}, std={np.std(res2, ddof=1):.6g}, max|res|={np.max(np.abs(res2)):.6g}")

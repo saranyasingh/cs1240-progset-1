@@ -75,7 +75,7 @@ class MinHeapDK:
 # ------ GRAPH IMPELEMENTATION -------
 
 # keeps only the light edges, which is the edges we are more likely to use
-def complete_weighted_graph_pruned(n, C=2.0):
+def complete_weighted_graph_pruned(n, C):
     adj = {p: [] for p in range(n)}
     k = C * math.log(n) / n  # threshold for edge weights
 
@@ -89,7 +89,10 @@ def complete_weighted_graph_pruned(n, C=2.0):
     return adj
 
 
-def hypercube_pruned(n, C=0.7):
+def hypercube_pruned(n, C):
+    import random
+    import math
+
     adj = {i: [] for i in range(n)}
 
     k = C  # threshold for pruning (approx 0.7 works for MST)
@@ -107,7 +110,7 @@ def hypercube_pruned(n, C=0.7):
 
     return adj
 
-def geometric_graph_pruned(n, dim=2, C=1.5):
+def geometric_graph_pruned(n, C, dim=2):
     rand = random.random
     sqrt = math.sqrt
     log = math.log
@@ -254,145 +257,133 @@ def is_connected(adj):
                 stack.append(v)
     return len(seen) == len(adj)
 
-def weight_testing():
-    sizes = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
-    trials = 5
-    
+import matplotlib.pyplot as plt
 
-    # Complete weighted
-    for n in sizes:
-        total_weight = 0
+def find_min_C_for_connectivity(
+    n_values,
+    C_values,
+    trials=20,
+    conn_target=0.9,          # "most of the time"
+    geometric_dims=(2, 3, 4),
+):
+    """
+    For each graph + n (and each dim for geometric), find the *smallest* C such that
+    connectivity_rate >= conn_target.
+
+    Returns:
+      bestC: dict with bestC["complete"][n], bestC["hypercube"][n], bestC["geometric"][dim][n]
+      stats: dict with connectivity rates for plotting/inspection
+    """
+    def conn_rate_for(graph_name, n, C, dim=None):
+        ok = 0
         for _ in range(trials):
-            graph = complete_weighted_graph_pruned(n)
-            mst, weight = prim_mst_decrease_key(graph)
-
-            while len(mst) != n - 1:
-                graph = complete_weighted_graph_pruned(n)
-                mst, weight = prim_mst_decrease_key(graph)
-            
-            total_weight += weight
-
-        avg_weight = total_weight / trials
-        print(f"Complete weighted for {n}: {avg_weight:.4f}")
-    
-    sizes_hyper = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144]
-    # Hypercube
-    for n in sizes_hyper:
-        total_weight = 0
-        for _ in range(trials):
-            graph = hypercube_pruned(n)
-            mst, weight = prim_mst_decrease_key(graph)
-            while len(mst) != n - 1:
-                graph = hypercube_pruned(n)
-                mst, weight = prim_mst_decrease_key(graph)
-
-            total_weight += weight
-
-        avg_weight = total_weight / trials
-        print(f"Hypercube for {n}: {avg_weight:.4f}")
-    
-    # Unit square
-    for n in sizes:
-        total_weight = 0
-        for _ in range(trials):
-            _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
-
-            mst, weight = prim_mst_decrease_key(graph)
-            while len(mst) != n - 1:
-                _, graph = geometric_graph_pruned(n, dim=2, C=2.0)
-                mst, weight = prim_mst_decrease_key(graph)
-
-            total_weight += weight
-
-        avg_weight = total_weight / trials
-        print(f"Unit square for {n}: {avg_weight:.4f}")
-    
-    # Unit cube 
-    for n in sizes:
-        total_weight = 0
-        for _ in range(trials):
-            points, graph = geometric_graph_pruned(n, dim=3, C=2.0)
-            while len(mst) != n - 1:
-                _, graph = geometric_graph_pruned(n, dim=3, C=2.0)
-                mst, weight = prim_mst_decrease_key(graph)
-            
-            mst, weight = prim_mst_decrease_key(graph)
-            total_weight += weight
-
-        avg_weight = total_weight / trials
-        print(f"Unit cube for {n}: {avg_weight:.4f}")
-
-    # Unit hypercube
-    for n in sizes:
-        total_weight = 0
-        for _ in range(trials):
-            points, graph = geometric_graph_pruned(n, dim=4, C=2.0)
-            
-            while len(mst) != n - 1:
-                _, graph = geometric_graph_pruned(n, dim=4, C=2.0)
-                mst, weight = prim_mst_decrease_key(graph)
-         
-            mst, weight = prim_mst_decrease_key(graph)
-            print(f"Unit hypercube for {n}: {weight:.4f}")
-            total_weight += weight
-
-        avg_weight = total_weight / trials
-        print(f"Average unit hypercube for {n}: {avg_weight:.4f}")
-
-def rand_mst(points, trials, dimensions):
-    
-    total_weight = 0
-    for _ in range(trials):
-        if dimensions == 0:
-            graph = complete_weighted_graph_pruned(points)
-           
-        elif dimensions == 1:
-            graph = hypercube_pruned(points)
-           
-        elif dimensions == 2:
-            _, graph = geometric_graph_pruned(points, dim=2, C=2.0)
-            
-        elif dimensions == 3:
-            _, graph = geometric_graph_pruned(points, dim=3, C=2.0)
-           
-        else:
-            _, graph = geometric_graph_pruned(points, dim=4, C=2.0)
-
-        
-        mst, weight = prim_mst_decrease_key(graph)
-        while len(mst) != points - 1:
-            if dimensions == 0:
-                graph = complete_weighted_graph_pruned(points)
-            elif dimensions == 1:
-                graph = hypercube_pruned(points)
-            
-            elif dimensions == 2:
-                _, graph = geometric_graph_pruned(points, dim=2, C=2.0)
-                
-            elif dimensions == 3:
-                _, graph = geometric_graph_pruned(points, dim=3, C=2.0)
-            
+            if graph_name == "complete":
+                G = complete_weighted_graph_pruned(n, C)
+            elif graph_name == "hypercube":
+                G = hypercube_pruned(n, C)
+            elif graph_name == "geometric":
+                _, G = geometric_graph_pruned(n, dim=dim, C=C)
             else:
-                _, graph = geometric_graph_pruned(points, dim=4, C=2.0)
+                raise ValueError("unknown graph")
 
-            mst, weight = prim_mst_decrease_key(graph)
-         
-        total_weight += weight
+            if is_connected(G):
+                ok += 1
+        return ok / trials
 
-    avg_weight = total_weight / trials
-    
-    return avg_weight, points, trials, dimensions
-    
+    bestC = {"complete": {}, "hypercube": {}, "geometric": {d: {} for d in geometric_dims}}
+    stats = {"complete": {}, "hypercube": {}, "geometric": {d: {} for d in geometric_dims}}
 
+    # ---- Complete + Hypercube ----
+    for graph_name in ["complete", "hypercube"]:
+        for n in n_values:
+            stats[graph_name][n] = {}
+            chosen = None
+            for C in C_values:   # assumes C_values sorted ascending
+                r = conn_rate_for(graph_name, n, C)
+                stats[graph_name][n][C] = r
+                if chosen is None and r >= conn_target:
+                    chosen = C
+            bestC[graph_name][n] = chosen
+
+    # ---- Geometric for each dim ----
+    for d in geometric_dims:
+        for n in n_values:
+            stats["geometric"][d][n] = {}
+            chosen = None
+            for C in C_values:
+                r = conn_rate_for("geometric", n, C, dim=d)
+                stats["geometric"][d][n][C] = r
+                if chosen is None and r >= conn_target:
+                    chosen = C
+            bestC["geometric"][d][n] = chosen
+
+    return bestC, stats
+
+
+def plot_connectivity_curves(stats, n_values, C_values, title):
+    """Connectivity rate vs C (one line per n)."""
+    plt.figure()
+    for n in n_values:
+        ys = [stats[n][C] for C in C_values]
+        plt.plot(C_values, ys, marker="o", label=f"n={n}")
+    plt.axhline(0.9, linestyle="--")  # change if you used a different conn_target
+    plt.xlabel("C")
+    plt.ylabel("Connectivity rate")
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_bestC_vs_n(bestC_for_graph, n_values, title):
+    """Best (smallest) C that hits the target vs n."""
+    plt.figure()
+    xs = list(n_values)
+    ys = [bestC_for_graph[n] if bestC_for_graph[n] is not None else float("nan") for n in xs]
+    plt.plot(xs, ys, marker="o")
+    plt.xlabel("n")
+    plt.ylabel("Smallest C meeting target")
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
+
+
+# ----------------------------
+# Example usage:
+# ----------------------------
 if __name__ == "__main__":
-    points = int(sys.argv[2])
-    trials = int(sys.argv[3])
-    dimensions = int(sys.argv[4])
+    n_values = [128, 256, 512, 1024, 2048]
+    C_values = [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0]  # ascending
+    trials = 5
+    conn_target = 0.9
 
-    avg, points, trials, dimensions = rand_mst(points, trials, dimensions)
+    bestC, stats = find_min_C_for_connectivity(
+        n_values=n_values,
+        C_values=C_values,
+        trials=trials,
+        conn_target=conn_target,
+        geometric_dims=(2, 3, 4),
+    )
 
-    print(f"{avg} {points} {trials} {dimensions}")
+    print("Smallest C hitting target connectivity:")
+    print("complete:", bestC["complete"])
+    print("hypercube:", bestC["hypercube"])
+    for d in bestC["geometric"]:
+        print(f"geometric dim={d}:", bestC["geometric"][d])
 
-'''
-weight_testing()
-'''
+    # plots
+    plot_connectivity_curves(stats["complete"], n_values, C_values,
+                             f"Complete: connectivity vs C (trials={trials}, target={conn_target})")
+    plot_bestC_vs_n(bestC["complete"], n_values,
+                    f"Complete: smallest C vs n (target={conn_target})")
+
+    plot_connectivity_curves(stats["hypercube"], n_values, C_values,
+                             f"Hypercube: connectivity vs C (trials={trials}, target={conn_target})")
+    plot_bestC_vs_n(bestC["hypercube"], n_values,
+                    f"Hypercube: smallest C vs n (target={conn_target})")
+
+    for d in (2, 3, 4):
+        plot_connectivity_curves(stats["geometric"][d], n_values, C_values,
+                                 f"Geometric dim={d}: connectivity vs C (trials={trials}, target={conn_target})")
+        plot_bestC_vs_n(bestC["geometric"][d], n_values,
+                        f"Geometric dim={d}: smallest C vs n (target={conn_target})")
