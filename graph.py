@@ -21,8 +21,8 @@ hyper4d_t = [0.6767, 0.0123, 0.0415, 0.1651, 0.8388, 4.2470, 20.7915, 107.0295, 
 #   hypercube_n = [...]
 #   hypercube_t = [...]
 # ----------------------------
-x = np.array(hyper4d_n, dtype=float)
-y = np.array(hyper4d_t, dtype=float)
+x = np.array(hypercube_n, dtype=float)
+y = np.array(hypercube_t, dtype=float)
 
 # ----------------------------
 # Helpers
@@ -52,7 +52,7 @@ f_n = x**2
 # Fit both models (choose one: scale-only or scale+intercept)
 # ----------------------------
 
-a1, yhat1, r2_1 = fit_scale_only(f_n, y)
+a1, yhat1, r2_1 = fit_scale_only(f_n_log2_sq, y)
 
 print("Model: y = a*(n log^2 n)")
 print(f"  a={a1:.6g}, R^2={r2_1:.6f}")
@@ -63,14 +63,14 @@ print(f"  a={a1:.6g}, R^2={r2_1:.6f}")
 plt.figure()
 plt.plot(x, y, "o-", label="data")
 
-plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,n^2$ (R$^2$={r2_1:.3f})")
+plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,n \log^2 n$ (R$^2$={r2_1:.3f})")
 # plt.plot(x, yhat1, "--", linewidth=2, label=fr"$a\,(n^2+n\log_2^2 n)$ (R$^2$={r2_1:.3f})")
 
 plt.xscale("log")
 plt.yscale("log")  # timing plots usually look best log-log
 plt.xlabel("n")
 plt.ylabel("time")
-plt.title("Unit hypercube timing")
+plt.title("Hypercube Runtime")
 plt.legend()
 plt.tight_layout()
 plt.show()
