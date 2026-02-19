@@ -254,4 +254,8 @@ if __name__ == "__main__":
 
     avg, points, trials, dimensions = rand_mst(points, trials, dimensions)
 
+<<<<<<< HEAD
     print(f"{avg} {points} {trials} {dimensions}")
+=======
+    print(f"{avg} {points} {trials} {dimensions}")
+>>>>>>> f105322 (LAST COMMIT)
