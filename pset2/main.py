@@ -1,7 +1,9 @@
 import random
 import time
+import math
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
+import matplotlib.pyplot as plt
 
 Matrix = List[List[int]]
 
@@ -312,12 +314,137 @@ def print_benchmark_table(results):
             f"{r['total_ops']:>12}"
         )
 
+# =========================================================
+# Random graph + triangle counting
+# =========================================================
 
-# ----------------------------
-# Example driver
-# ----------------------------
+def random_undirected_graph_adjacency(n: int, p: float, seed: Optional[int] = None) -> Matrix:
+    """
+    Build adjacency matrix of G(n,p), undirected, no self-loops.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    A = zeros(n, n)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if random.random() < p:
+                A[i][j] = 1
+                A[j][i] = 1
+
+    return A
+
+
+def matrix_trace(A: Matrix) -> int:
+    s = 0
+    for i in range(len(A)):
+        s += A[i][i]
+    return s
+
+
+def triangle_count_via_a3(A: Matrix, n_0: int) -> int:
+    """
+    Number of triangles = trace(A^3) / 6 for a simple undirected graph.
+    """
+    A2 = strassen_multiply(A, A, n_0=n_0)
+    A3 = strassen_multiply(A2, A, n_0=n_0)
+    return matrix_trace(A3) // 6
+
+
+def expected_triangle_count(n: int, p: float) -> float:
+    return math.comb(n, 3) * (p ** 3)
+
+
+# =========================================================
+# Experiment runner
+# =========================================================
+
+def run_triangle_experiment(n: int = 1024, p_values=None, n_0: int = 32, seed: int = 0):
+    if p_values is None:
+        p_values = [0.01, 0.02, 0.03, 0.04, 0.05]
+
+    results = []
+
+    for idx, p in enumerate(p_values):
+        print(f"Running p = {p:.2f} ...")
+        graph_seed = seed + idx
+
+        t0 = time.perf_counter()
+        A = random_undirected_graph_adjacency(n, p, seed=graph_seed)
+        build_time = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        observed = triangle_count_via_a3(A, n_0=n_0)
+        mult_time = time.perf_counter() - t1
+
+        expected = expected_triangle_count(n, p)
+
+        results.append({
+            "p": p,
+            "observed": observed,
+            "expected": expected,
+            "graph_build_time_sec": build_time,
+            "triangle_count_time_sec": mult_time,
+        })
+
+        print(f"  observed = {observed}")
+        print(f"  expected = {expected:.2f}")
+        print(f"  build time = {build_time:.3f}s")
+        print(f"  triangle count time = {mult_time:.3f}s")
+        print()
+
+    return results
+
+
+def print_results_table(results):
+    print(f"{'p':>6}  {'observed':>15}  {'expected':>15}  {'build_time(s)':>15}  {'count_time(s)':>15}")
+    print("-" * 78)
+    for r in results:
+        print(
+            f"{r['p']:>6.2f}  "
+            f"{r['observed']:>15}  "
+            f"{r['expected']:>15.2f}  "
+            f"{r['graph_build_time_sec']:>15.3f}  "
+            f"{r['triangle_count_time_sec']:>15.3f}"
+        )
+
+
+def plot_triangle_results(results):
+    p_vals = [r["p"] for r in results]
+    observed = [r["observed"] for r in results]
+    expected = [r["expected"] for r in results]
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(p_vals, observed, marker="o", label="Observed triangles")
+    plt.plot(p_vals, expected, marker="s", label="Expected triangles")
+    plt.xlabel("p")
+    plt.ylabel("Number of triangles")
+    plt.title("Observed vs Expected Number of Triangles in G(1024, p)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+# =========================================================
+# Main
+# =========================================================
 
 if __name__ == "__main__":
+    # You can change n_0 if you found a better threshold experimentally.
+    results = run_triangle_experiment(
+        n=1024,
+        p_values=[0.01, 0.02, 0.03, 0.04, 0.05],
+        n_0=32,
+        seed=42
+    )
+
+    print_results_table(results)
+    plot_triangle_results(results)
+
+    '''
+    CODE FOR FINDING OPTIMAL N_0 VALUE
     n = 128
     n0_values = [2, 4, 8, 16, 32, 64]
 
@@ -355,4 +482,6 @@ if __name__ == "__main__":
         "subs": conv_ops.subs,
         "mults": conv_ops.mults,
         "total_ops": conv_ops.total,
+        
     })
+    '''
