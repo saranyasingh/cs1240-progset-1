@@ -1,69 +1,140 @@
-import math
 import random
+import time
+from dataclasses import dataclass
+from typing import List, Tuple, Optional
+
+Matrix = List[List[int]]
 
 
-def zero_matrix(n):
-    return [[0 for _ in range(n)] for _ in range(n)]
+# ----------------------------
+# Operation counter
+# ----------------------------
+
+@dataclass
+class OpCounter:
+    adds: int = 0
+    mults: int = 0
+    subs: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.adds + self.subs + self.mults
 
 
-def matrix_add(A, B):
+# ----------------------------
+# Basic matrix utilities
+# ----------------------------
+
+def zeros(n: int, m: int) -> Matrix:
+    return [[0 for _ in range(m)] for _ in range(n)]
+
+
+def copy_matrix(A: Matrix) -> Matrix:
+    return [row[:] for row in A]
+
+
+def random_matrix(n: int, low: int = -10, high: int = 10) -> Matrix:
+    return [[random.randint(low, high) for _ in range(n)] for _ in range(n)]
+
+
+def matrix_equal(A: Matrix, B: Matrix) -> bool:
     n = len(A)
-    C = zero_matrix(n)
-    ops = 0
+    m = len(A[0])
+    if len(B) != n or len(B[0]) != m:
+        return False
     for i in range(n):
-        for j in range(n):
+        for j in range(m):
+            if A[i][j] != B[i][j]:
+                return False
+    return True
+
+
+def next_power_of_2(n: int) -> int:
+    p = 1
+    while p < n:
+        p *= 2
+    return p
+
+
+def pad_matrix(A: Matrix, size: int) -> Matrix:
+    n = len(A)
+    m = len(A[0])
+    P = zeros(size, size)
+    for i in range(n):
+        for j in range(m):
+            P[i][j] = A[i][j]
+    return P
+
+
+def unpad_matrix(A: Matrix, rows: int, cols: int) -> Matrix:
+    return [A[i][:cols] for i in range(rows)]
+
+
+# ----------------------------
+# Matrix add/subtract
+# ----------------------------
+
+def add_matrix(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Matrix:
+    n = len(A)
+    m = len(A[0])
+    C = zeros(n, m)
+    for i in range(n):
+        for j in range(m):
             C[i][j] = A[i][j] + B[i][j]
-            ops += 1  # one scalar addition
-    return C, ops
+            if counter is not None:
+                counter.adds += 1
+    return C
 
 
-def matrix_sub(A, B):
+def sub_matrix(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Matrix:
     n = len(A)
-    C = zero_matrix(n)
-    ops = 0
+    m = len(A[0])
+    C = zeros(n, m)
     for i in range(n):
-        for j in range(n):
+        for j in range(m):
             C[i][j] = A[i][j] - B[i][j]
-            ops += 1  # one scalar subtraction
-    return C, ops
+            if counter is not None:
+                counter.subs += 1
+    return C
 
 
-def conventional_matmul_manual(A, B):
+# ----------------------------
+# Conventional multiplication
+# ----------------------------
+
+def conventional_multiply(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Matrix:
     """
-    Fully manual conventional matrix multiplication.
-    No NumPy, no vectorization, every multiply/add is explicit.
-
-    Returns:
-        C, mult_ops, add_ops
-    where
-        mult_ops = number of scalar multiplications
-        add_ops  = number of scalar additions
+    Standard O(n^3) matrix multiplication for square matrices,
+    implemented without numpy.
     """
     n = len(A)
-    C = zero_matrix(n)
-
-    mult_ops = 0
-    add_ops = 0
+    C = zeros(n, n)
 
     for i in range(n):
         for j in range(n):
-            total = 0
+            s = 0
             for k in range(n):
                 prod = A[i][k] * B[k][j]
-                mult_ops += 1
+                if counter is not None:
+                    counter.mults += 1
 
                 if k == 0:
-                    total = prod
+                    s = prod
                 else:
-                    total = total + prod
-                    add_ops += 1
+                    s = s + prod
+                    if counter is not None:
+                        counter.adds += 1
 
-            C[i][j] = total
+            C[i][j] = s
 
-    return C, mult_ops, add_ops
+    return C
 
 
-def split_matrix(A):
+# ----------------------------
+# Split / combine helpers
+# ----------------------------
+
+def split_matrix(A: Matrix) -> Tuple[Matrix, Matrix, Matrix, Matrix]:
     n = len(A)
     mid = n // 2
 
@@ -75,191 +146,213 @@ def split_matrix(A):
     return A11, A12, A21, A22
 
 
-def combine_quadrants(C11, C12, C21, C22):
-    n2 = len(C11)
-    n = 2 * n2
-    C = zero_matrix(n)
-
-    for i in range(n2):
-        for j in range(n2):
-            C[i][j] = C11[i][j]
-            C[i][j + n2] = C12[i][j]
-            C[i + n2][j] = C21[i][j]
-            C[i + n2][j + n2] = C22[i][j]
-
-    return C
+def combine_quadrants(C11: Matrix, C12: Matrix, C21: Matrix, C22: Matrix) -> Matrix:
+    top = [r1 + r2 for r1, r2 in zip(C11, C12)]
+    bot = [r1 + r2 for r1, r2 in zip(C21, C22)]
+    return top + bot
 
 
-def next_power_of_2(n):
-    if n == 0:
-        return 1
-    return 2 ** math.ceil(math.log2(n))
+# ----------------------------
+# Strassen with threshold n_0
+# ----------------------------
 
-
-def pad_matrix(A, size):
-    n = len(A)
-    P = zero_matrix(size)
-    for i in range(n):
-        for j in range(n):
-            P[i][j] = A[i][j]
-    return P
-
-
-def unpad_matrix(A, size):
-    return [row[:size] for row in A[:size]]
-
-
-def strassen(A, B, n0=32):
+def strassen_multiply(A: Matrix, B: Matrix, n_0: int, counter: Optional[OpCounter] = None) -> Matrix:
     """
-    Strassen with threshold n0.
-    Uses fully manual conventional multiplication at/below threshold.
+    Strassen multiplication with threshold n_0.
+    If current matrix size n <= n_0, switch to conventional multiplication.
 
-    Returns:
-        C, mult_ops, add_ops
+    Works for arbitrary square matrices by padding to the next power of 2.
     """
     n = len(A)
+    assert n == len(A[0]) == len(B) == len(B[0]), "Matrices must be square and same size."
 
-    if n <= n0:
-        return conventional_matmul_manual(A, B)
+    size = next_power_of_2(n)
+    if size != n:
+        A_pad = pad_matrix(A, size)
+        B_pad = pad_matrix(B, size)
+        C_pad = _strassen_power_of_2(A_pad, B_pad, n_0, counter)
+        return unpad_matrix(C_pad, n, n)
+    else:
+        return _strassen_power_of_2(A, B, n_0, counter)
 
-    # Handle non-power-of-2 sizes by padding
-    m = next_power_of_2(n)
-    if m != n:
-        A_pad = pad_matrix(A, m)
-        B_pad = pad_matrix(B, m)
-        C_pad, mult_ops, add_ops = strassen(A_pad, B_pad, n0)
-        return unpad_matrix(C_pad, n), mult_ops, add_ops
+
+def _strassen_power_of_2(A: Matrix, B: Matrix, n_0: int, counter: Optional[OpCounter]) -> Matrix:
+    n = len(A)
+
+    # Base case: use conventional multiplication
+    if n <= n_0:
+        return conventional_multiply(A, B, counter)
+
+    # Smallest nontrivial size safeguard
+    if n == 1:
+        c = [[A[0][0] * B[0][0]]]
+        if counter is not None:
+            counter.mults += 1
+        return c
 
     A11, A12, A21, A22 = split_matrix(A)
     B11, B12, B21, B22 = split_matrix(B)
 
-    total_mult_ops = 0
-    total_add_ops = 0
+    # Strassen's 7 products
+    M1 = _strassen_power_of_2(add_matrix(A11, A22, counter), add_matrix(B11, B22, counter), n_0, counter)
+    M2 = _strassen_power_of_2(add_matrix(A21, A22, counter), B11, n_0, counter)
+    M3 = _strassen_power_of_2(A11, sub_matrix(B12, B22, counter), n_0, counter)
+    M4 = _strassen_power_of_2(A22, sub_matrix(B21, B11, counter), n_0, counter)
+    M5 = _strassen_power_of_2(add_matrix(A11, A12, counter), B22, n_0, counter)
+    M6 = _strassen_power_of_2(sub_matrix(A21, A11, counter), add_matrix(B11, B12, counter), n_0, counter)
+    M7 = _strassen_power_of_2(sub_matrix(A12, A22, counter), add_matrix(B21, B22, counter), n_0, counter)
 
-    S1, ops = matrix_add(A11, A22)
-    total_add_ops += ops
-    S2, ops = matrix_add(B11, B22)
-    total_add_ops += ops
-    M1, m_ops, a_ops = strassen(S1, S2, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
+    # Recombine
+    C11 = add_matrix(sub_matrix(add_matrix(M1, M4, counter), M5, counter), M7, counter)
+    C12 = add_matrix(M3, M5, counter)
+    C21 = add_matrix(M2, M4, counter)
+    C22 = add_matrix(sub_matrix(add_matrix(M1, M3, counter), M2, counter), M6, counter)
 
-    S3, ops = matrix_add(A21, A22)
-    total_add_ops += ops
-    M2, m_ops, a_ops = strassen(S3, B11, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    S4, ops = matrix_sub(B12, B22)
-    total_add_ops += ops
-    M3, m_ops, a_ops = strassen(A11, S4, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    S5, ops = matrix_sub(B21, B11)
-    total_add_ops += ops
-    M4, m_ops, a_ops = strassen(A22, S5, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    S6, ops = matrix_add(A11, A12)
-    total_add_ops += ops
-    M5, m_ops, a_ops = strassen(S6, B22, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    S7, ops = matrix_sub(A21, A11)
-    total_add_ops += ops
-    S8, ops2 = matrix_add(B11, B12)
-    total_add_ops += ops2
-    M6, m_ops, a_ops = strassen(S7, S8, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    S9, ops = matrix_sub(A12, A22)
-    total_add_ops += ops
-    S10, ops2 = matrix_add(B21, B22)
-    total_add_ops += ops2
-    M7, m_ops, a_ops = strassen(S9, S10, n0)
-    total_mult_ops += m_ops
-    total_add_ops += a_ops
-
-    T1, ops = matrix_add(M1, M4)
-    total_add_ops += ops
-    T2, ops = matrix_sub(T1, M5)
-    total_add_ops += ops
-    C11, ops = matrix_add(T2, M7)
-    total_add_ops += ops
-
-    C12, ops = matrix_add(M3, M5)
-    total_add_ops += ops
-
-    C21, ops = matrix_add(M2, M4)
-    total_add_ops += ops
-
-    T3, ops = matrix_sub(M1, M2)
-    total_add_ops += ops
-    T4, ops = matrix_add(T3, M3)
-    total_add_ops += ops
-    C22, ops = matrix_add(T4, M6)
-    total_add_ops += ops
-
-    C = combine_quadrants(C11, C12, C21, C22)
-    return C, total_mult_ops, total_add_ops
+    return combine_quadrants(C11, C12, C21, C22)
 
 
-def random_matrix(n, low=-5, high=5):
-    return [[random.randint(low, high) for _ in range(n)] for _ in range(n)]
+# ----------------------------
+# Timing / benchmarking
+# ----------------------------
 
-
-def matrices_equal(A, B):
-    n = len(A)
-    for i in range(n):
-        for j in range(n):
-            if A[i][j] != B[i][j]:
-                return False
-    return True
-
-
-def find_best_n0_by_ops(n, thresholds, trials=3):
+def time_function(func, *args, repeats: int = 3, **kwargs) -> float:
     """
-    Experimentally determine best n0 by operation count.
+    Return average runtime in seconds over `repeats` runs.
     """
-    results = {n0: [] for n0 in thresholds}
+    total = 0.0
+    for _ in range(repeats):
+        start = time.perf_counter()
+        func(*args, **kwargs)
+        end = time.perf_counter()
+        total += (end - start)
+    return total / repeats
 
-    for _ in range(trials):
-        A = random_matrix(n)
-        B = random_matrix(n)
 
-        # ground truth from manual conventional multiplication
-        C_true, _, _ = conventional_matmul_manual(A, B)
+def count_operations_for_strassen(A: Matrix, B: Matrix, n_0: int) -> OpCounter:
+    counter = OpCounter()
+    _ = strassen_multiply(A, B, n_0=n_0, counter=counter)
+    return counter
 
-        for n0 in thresholds:
-            C, mult_ops, add_ops = strassen(A, B, n0=n0)
 
-            if not matrices_equal(C, C_true):
-                raise ValueError(f"Incorrect result for n0={n0}")
+def count_operations_for_conventional(A: Matrix, B: Matrix) -> OpCounter:
+    counter = OpCounter()
+    _ = conventional_multiply(A, B, counter=counter)
+    return counter
 
-            total_ops = mult_ops + add_ops
-            results[n0].append(total_ops)
 
-    avg_results = {
-        n0: sum(results[n0]) / len(results[n0])
-        for n0 in thresholds
-    }
+def benchmark_n0_values(
+    n: int,
+    n0_values: List[int],
+    repeats: int = 3,
+    seed: int = 0,
+    low: int = -10,
+    high: int = 10,
+    verify: bool = True
+):
+    """
+    For a fixed matrix size n, test multiple n_0 values.
+    Reports:
+      - average time in seconds
+      - total operation count
+      - detailed adds/subs/mults
+    """
+    random.seed(seed)
+    A = random_matrix(n, low, high)
+    B = random_matrix(n, low, high)
 
-    best_n0 = min(avg_results, key=avg_results.get)
-    return best_n0, avg_results
+    if verify:
+        C_ref = conventional_multiply(A, B)
+    else:
+        C_ref = None
 
+    results = []
+
+    for n_0 in n0_values:
+        # correctness check
+        if verify:
+            C_test = strassen_multiply(A, B, n_0=n_0)
+            if not matrix_equal(C_ref, C_test):
+                raise ValueError(f"Incorrect result for n_0 = {n_0}")
+
+        avg_time = time_function(strassen_multiply, A, B, n_0, repeats=repeats)
+        ops = count_operations_for_strassen(A, B, n_0)
+
+        results.append({
+            "n_0": n_0,
+            "time_seconds": avg_time,
+            "adds": ops.adds,
+            "subs": ops.subs,
+            "mults": ops.mults,
+            "total_ops": ops.total,
+        })
+
+    return results
+
+
+def find_best_n0_by_time(results) -> dict:
+    return min(results, key=lambda x: x["time_seconds"])
+
+
+def find_best_n0_by_operations(results) -> dict:
+    return min(results, key=lambda x: x["total_ops"])
+
+
+def print_benchmark_table(results):
+    print(
+        f"{'n_0':>6}  {'time(s)':>12}  {'adds':>12}  {'subs':>12}  {'mults':>12}  {'total_ops':>12}"
+    )
+    print("-" * 74)
+    for r in results:
+        print(
+            f"{r['n_0']:>6}  "
+            f"{r['time_seconds']:>12.6f}  "
+            f"{r['adds']:>12}  "
+            f"{r['subs']:>12}  "
+            f"{r['mults']:>12}  "
+            f"{r['total_ops']:>12}"
+        )
+
+
+# ----------------------------
+# Example driver
+# ----------------------------
 
 if __name__ == "__main__":
-    n = 64
-    thresholds = [2, 4, 8, 16, 32]
+    n = 128
+    n0_values = [2, 4, 8, 16, 32, 64]
 
-    best_n0, avg_results = find_best_n0_by_ops(n, thresholds, trials=5)
+    results = benchmark_n0_values(
+        n=n,
+        n0_values=n0_values,
+        repeats=3,
+        seed=42,
+        verify=True
+    )
 
-    print("Average operation counts:")
-    for n0 in thresholds:
-        print(f"n0 = {n0:2d}: {avg_results[n0]}")
+    print_benchmark_table(results)
 
-    print(f"\nBest n0 = {best_n0}")
+    best_time = find_best_n0_by_time(results)
+    best_ops = find_best_n0_by_operations(results)
+
+    print("\nBest n_0 by actual runtime:")
+    print(best_time)
+
+    print("\nBest n_0 by operation count:")
+    print(best_ops)
+
+    # Conventional baseline
+    random.seed(42)
+    A = random_matrix(n)
+    B = random_matrix(n)
+
+    conv_time = time_function(conventional_multiply, A, B, repeats=3)
+    conv_ops = count_operations_for_conventional(A, B)
+
+    print("\nConventional multiplication baseline:")
+    print({
+        "time_seconds": conv_time,
+        "adds": conv_ops.adds,
+        "subs": conv_ops.subs,
+        "mults": conv_ops.mults,
+        "total_ops": conv_ops.total,
+    })
