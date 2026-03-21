@@ -87,6 +87,14 @@ def add_matrix(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Mat
                 counter.adds += 1
     return C
 
+def add_into(C, A, B, size, a_row, a_col, b_row, b_col): # in-place matrix addition
+    for i in range(size):
+        Ci = C[i]
+        Ai = A[a_row + i]
+        Bi = B[b_row + i]
+        for j in range(size):
+            Ci[j] = Ai[a_col + j] + Bi[b_col + j]
+
 
 def sub_matrix(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Matrix:
     n = len(A)
@@ -98,6 +106,15 @@ def sub_matrix(A: Matrix, B: Matrix, counter: Optional[OpCounter] = None) -> Mat
             if counter is not None:
                 counter.subs += 1
     return C
+
+
+def sub_into(C, A, B, size, a_row, a_col, b_row, b_col): # in-place matrix subtraction
+    for i in range(size):
+        Ci = C[i]
+        Ai = A[a_row + i]
+        Bi = B[b_row + i]
+        for j in range(size):
+            Ci[j] = Ai[a_col + j] - Bi[b_col + j]
 
 
 # ----------------------------
@@ -112,6 +129,20 @@ def conventional_multiply(A: Matrix, B: Matrix, counter: Optional[OpCounter] = N
     n = len(A)
     C = zeros(n, n)
 
+    for i in range(n):
+        Ci = C[i] # cache row reference
+        for k in range(n):
+            aik = A[i][k] # reuse A[i][k] in the inner loop
+            Bk = B[k] # cache row reference
+            for j in range(n):
+                Ci[j] += aik * Bk[j] # B[k][j] accessed row-wise which is contiguous in memory --> practical speediup
+                if counter is not None:
+                    counter.mults += 1
+                    if k > 0:
+                        counter.adds += 1
+    return C
+
+    '''
     for i in range(n):
         for j in range(n):
             s = 0
@@ -130,6 +161,8 @@ def conventional_multiply(A: Matrix, B: Matrix, counter: Optional[OpCounter] = N
             C[i][j] = s
 
     return C
+    '''
+
 
 
 # ----------------------------
@@ -176,6 +209,19 @@ def strassen_multiply(A: Matrix, B: Matrix, n_0: int, counter: Optional[OpCounte
         return unpad_matrix(C_pad, n, n)
     else:
         return _strassen_power_of_2(A, B, n_0, counter)
+    
+def strassen_multiply_optimized(A: Matrix, B: Matrix, n_0: int):
+    n = len(A)
+    size = next_power_of_2(n)
+
+    A_pad = pad_matrix(A, size)
+    B_pad = pad_matrix(B, size)
+
+    C_pad = zeros(size, size)
+
+    _strassen_power_of_2_optimized(A_pad, B_pad, C_pad, size, n_0)
+
+    return unpad_matrix(C_pad, n, n)
 
 
 def _strassen_power_of_2(A: Matrix, B: Matrix, n_0: int, counter: Optional[OpCounter]) -> Matrix:
@@ -212,6 +258,83 @@ def _strassen_power_of_2(A: Matrix, B: Matrix, n_0: int, counter: Optional[OpCou
 
     return combine_quadrants(C11, C12, C21, C22)
 
+def _strassen_power_of_2_optimized(A, B, C, size, n_0, a_row=0, a_col=0, b_row=0, b_col=0):
+    
+    if size <= n_0:
+        # base case: write directly into C
+        for i in range(size):
+            Ci = C[i]
+            Ai = A[a_row + i]
+
+            for k in range(size):
+                aik = Ai[a_col + k]
+                Bk = B[b_row + k]
+
+                for j in range(size):
+                    Ci[j] += aik * Bk[b_col + j]
+        return
+
+    mid = size // 2
+
+    # allocate temporaries ONCE per level
+    T1 = zeros(mid, mid)
+    T2 = zeros(mid, mid)
+
+    M1 = zeros(mid, mid)
+    M2 = zeros(mid, mid)
+    M3 = zeros(mid, mid)
+    M4 = zeros(mid, mid)
+    M5 = zeros(mid, mid)
+    M6 = zeros(mid, mid)
+    M7 = zeros(mid, mid)
+
+    # ---- M1 = (A11 + A22)(B11 + B22)
+    add_into(T1, A, A, mid, a_row, a_col, a_row + mid, a_col + mid)
+    add_into(T2, B, B, mid, b_row, b_col, b_row + mid, b_col + mid)
+    _strassen_power_of_2_optimized(T1, T2, M1, mid, n_0)
+
+    # ---- M2 = (A21 + A22) B11
+    add_into(T1, A, A, mid, a_row + mid, a_col, a_row + mid, a_col + mid)
+    _strassen_power_of_2_optimized(T1, B, M2, mid, n_0, 0, 0, b_row, b_col)
+
+    # ---- M3 = A11 (B12 - B22)
+    sub_into(T2, B, B, mid, b_row, b_col + mid, b_row + mid, b_col + mid)
+    _strassen_power_of_2_optimized(A, T2, M3, mid, n_0, a_row, a_col, 0, 0)
+
+    # ---- M4 = A22 (B21 - B11)
+    sub_into(T2, B, B, mid, b_row + mid, b_col, b_row, b_col)
+    _strassen_power_of_2_optimized(A, T2, M4, mid, n_0, a_row + mid, a_col + mid, 0, 0)
+
+    # ---- M5 = (A11 + A12) B22
+    add_into(T1, A, A, mid, a_row, a_col, a_row, a_col + mid)
+    _strassen_power_of_2_optimized(T1, B, M5, mid, n_0, 0, 0, b_row + mid, b_col + mid)
+
+    # ---- M6 = (A21 - A11)(B11 + B12)
+    sub_into(T1, A, A, mid, a_row + mid, a_col, a_row, a_col)
+    add_into(T2, B, B, mid, b_row, b_col, b_row, b_col + mid)
+    _strassen_power_of_2_optimized(T1, T2, M6, mid, n_0)
+
+    # ---- M7 = (A12 - A22)(B21 + B22)
+    sub_into(T1, A, A, mid, a_row, a_col + mid, a_row + mid, a_col + mid)
+    add_into(T2, B, B, mid, b_row + mid, b_col, b_row + mid, b_col + mid)
+    _strassen_power_of_2_optimized(T1, T2, M7, mid, n_0)
+
+    # ---- Combine directly into C
+    for i in range(mid):
+        Ci = C[i]
+        Ci_mid = C[i + mid]
+
+        for j in range(mid):
+            C11 = M1[i][j] + M4[i][j] - M5[i][j] + M7[i][j]
+            C12 = M3[i][j] + M5[i][j]
+            C21 = M2[i][j] + M4[i][j]
+            C22 = M1[i][j] - M2[i][j] + M3[i][j] + M6[i][j]
+
+            Ci[j] = C11
+            Ci[j + mid] = C12
+            Ci_mid[j] = C21
+            Ci_mid[j + mid] = C22
+
 
 # ----------------------------
 # Timing / benchmarking
@@ -221,6 +344,8 @@ def time_function(func, *args, repeats: int = 3, **kwargs) -> float:
     """
     Return average runtime in seconds over `repeats` runs.
     """
+    func(*args, **kwargs)  # warm-up
+
     total = 0.0
     for _ in range(repeats):
         start = time.perf_counter()
@@ -242,6 +367,7 @@ def count_operations_for_conventional(A: Matrix, B: Matrix) -> OpCounter:
     return counter
 
 
+'''
 def benchmark_n0_values(
     n: int,
     n0_values: List[int],
@@ -289,6 +415,45 @@ def benchmark_n0_values(
         })
 
     return results
+'''
+
+def benchmark_n0_values(
+    n: int,
+    n0_values: List[int],
+    repeats: int = 3,
+    seed: int = 0,
+    verify: bool = True
+):
+    random.seed(seed)
+    A = random_matrix(n)
+    B = random_matrix(n)
+
+    if verify:
+        C_ref = conventional_multiply(A, B)
+
+    results = []
+
+    for n_0 in n0_values:
+
+        # correctness
+        if verify:
+            C_test = strassen_multiply_optimized(A, B, n_0)
+            if not matrix_equal(C_ref, C_test):
+                raise ValueError(f"Incorrect result for n_0 = {n_0}")
+
+        # timing
+        avg_time = time_function(
+            strassen_multiply_optimized,
+            A, B, n_0,
+            repeats=repeats
+        )
+
+        results.append({
+            "n_0": n_0,
+            "time_seconds": avg_time,
+        })
+
+    return results
 
 
 def find_best_n0_by_time(results) -> dict:
@@ -298,7 +463,16 @@ def find_best_n0_by_time(results) -> dict:
 def find_best_n0_by_operations(results) -> dict:
     return min(results, key=lambda x: x["total_ops"])
 
+def print_benchmark_table(results):
+    print(f"{'n_0':>6}  {'time(s)':>12}")
+    print("-" * 22)
+    for r in results:
+        print(
+            f"{r['n_0']:>6}  "
+            f"{r['time_seconds']:>12.6f}"
+        )
 
+'''
 def print_benchmark_table(results):
     print(
         f"{'n_0':>6}  {'time(s)':>12}  {'adds':>12}  {'subs':>12}  {'mults':>12}  {'total_ops':>12}"
@@ -313,6 +487,8 @@ def print_benchmark_table(results):
             f"{r['mults']:>12}  "
             f"{r['total_ops']:>12}"
         )
+'''
+
 
 # =========================================================
 # Random graph + triangle counting
@@ -433,6 +609,7 @@ def plot_triangle_results(results):
 
 if __name__ == "__main__":
     # You can change n_0 if you found a better threshold experimentally.
+    '''
     results = run_triangle_experiment(
         n=1024,
         p_values=[0.01, 0.02, 0.03, 0.04, 0.05],
@@ -442,9 +619,11 @@ if __name__ == "__main__":
 
     print_results_table(results)
     plot_triangle_results(results)
-
     '''
-    CODE FOR FINDING OPTIMAL N_0 VALUE
+
+
+    
+    # CODE FOR FINDING OPTIMAL N_0 VALUE
     n = 128
     n0_values = [2, 4, 8, 16, 32, 64]
 
@@ -459,13 +638,13 @@ if __name__ == "__main__":
     print_benchmark_table(results)
 
     best_time = find_best_n0_by_time(results)
-    best_ops = find_best_n0_by_operations(results)
+    # best_ops = find_best_n0_by_operations(results)
 
     print("\nBest n_0 by actual runtime:")
     print(best_time)
 
-    print("\nBest n_0 by operation count:")
-    print(best_ops)
+    # print("\nBest n_0 by operation count:")
+    # print(best_ops)
 
     # Conventional baseline
     random.seed(42)
@@ -484,4 +663,4 @@ if __name__ == "__main__":
         "total_ops": conv_ops.total,
         
     })
-    '''
+    
