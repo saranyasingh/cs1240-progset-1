@@ -37,36 +37,54 @@ def expected_triangle_count(n: int, p: float) -> float:
     return math.comb(n, 3) * (p ** 3)
 
 
-def run_triangle_experiment(n: int = 1024, p_values=None, n_0: int = 32):
+def run_triangle_experiment(n: int = 1024, p_values=None, n_0: int = 32, trials: int = 5):
     if p_values is None:
         p_values = [0.01, 0.02, 0.03, 0.04, 0.05]
 
     results = []
 
-    for idx, p in enumerate(p_values):
-        print(f"Running p = {p:.2f} ...")
-        t0 = time.perf_counter()
-        A = random_undirected_graph_adjacency(n, p)
-        build_time = time.perf_counter() - t0
+    for p in p_values:
+        print(f"Running p = {p:.2f} with {trials} trials...")
 
-        t1 = time.perf_counter()
-        observed = triangle_count_via_a3(A, n_0=n_0)
-        mult_time = time.perf_counter() - t1
+        observed_list = []
+        build_times = []
+        mult_times = []
+
+        for t in range(trials):
+            print(f"  Trial {t+1}...")
+
+            t0 = time.perf_counter()
+            A = random_undirected_graph_adjacency(n, p)
+            build_time = time.perf_counter() - t0
+
+            t1 = time.perf_counter()
+            observed = triangle_count_via_a3(A, n_0=n_0)
+            mult_time = time.perf_counter() - t1
+
+            observed_list.append(observed)
+            build_times.append(build_time)
+            mult_times.append(mult_time)
+
+            print(f"    observed = {observed}")
+
+        # Aggregate
+        avg_observed = sum(observed_list) / trials
+        avg_build_time = sum(build_times) / trials
+        avg_mult_time = sum(mult_times) / trials
 
         expected = expected_triangle_count(n, p)
 
         results.append({
             "p": p,
-            "observed": observed,
+            "observed": avg_observed,
             "expected": expected,
-            "graph_build_time_sec": build_time,
-            "triangle_count_time_sec": mult_time,
+            "observed_all": observed_list,
+            "graph_build_time_sec": avg_build_time,
+            "triangle_count_time_sec": avg_mult_time,
         })
 
-        print(f"  observed = {observed}")
-        print(f"  expected = {expected:.2f}")
-        print(f"  build time = {build_time:.3f}s")
-        print(f"  triangle count time = {mult_time:.3f}s")
+        print(f"  avg observed = {avg_observed:.2f}")
+        print(f"  expected     = {expected:.2f}")
         print()
 
     return results

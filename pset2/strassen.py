@@ -14,6 +14,9 @@ def zeros(n: int, m: int) -> Matrix:
 def random_matrix(n: int, low: int = -10, high: int = 10) -> Matrix:
     return [[random.randint(low, high) for _ in range(n)] for _ in range(n)]
 
+def random_binary_matrix(n: int) -> Matrix:
+    return [[random.randint(0, 2) for _ in range(n)] for _ in range(n)]
+
 def next_power_of_2(n: int) -> int:
     p = 1
     while p < n:
@@ -92,39 +95,78 @@ def combine_quadrants(C11: Matrix, C12: Matrix, C21: Matrix, C22: Matrix) -> Mat
     return top + bot
 
 # STRASSEN
+def copy_block_to_padded(
+    src: Matrix,
+    src_row: int,
+    src_col: int,
+    size: int,
+    padded_size: int,
+) -> Matrix:
+    """
+    Copy the size x size block from src[src_row:src_row+size][src_col:src_col+size]
+    into the top-left corner of a new padded_size x padded_size zero matrix.
+    """
+    out = zeros(padded_size, padded_size)
+    for i in range(size):
+        out_i = out[i]
+        src_i = src[src_row + i]
+        for j in range(size):
+            out_i[j] = src_i[src_col + j]
+    return out
 
-def strassen_multiply_optimized(A: Matrix, B: Matrix, n_0: int):
-    n = len(A)
-    size = next_power_of_2(n)
 
-    A_pad = pad_matrix(A, size)
-    B_pad = pad_matrix(B, size)
+def _strassen_recursive(
+    A: Matrix,
+    B: Matrix,
+    C: Matrix,
+    size: int,
+    n_0: int,
+    a_row: int = 0,
+    a_col: int = 0,
+    b_row: int = 0,
+    b_col: int = 0,
+) -> None:
+    """
+    Computes:
+        C[0:size][0:size] = A[a_row:a_row+size][a_col:a_col+size] *
+                            B[b_row:b_row+size][b_col:b_col+size]
 
-    C_pad = zeros(size, size)
+    C is assumed to be a local output matrix of shape at least size x size.
+    """
 
-    _strassen_power_of_2_optimized(A_pad, B_pad, C_pad, size, n_0)
-
-    return unpad_matrix(C_pad, n, n)
-
-def _strassen_power_of_2_optimized(A, B, C, size, n_0, a_row=0, a_col=0, b_row=0, b_col=0):
-    
+    # Base case: conventional multiplication directly into C
     if size <= n_0:
-        # base case: write directly into C
         for i in range(size):
             Ci = C[i]
             Ai = A[a_row + i]
-
             for k in range(size):
                 aik = Ai[a_col + k]
                 Bk = B[b_row + k]
-
                 for j in range(size):
                     Ci[j] += aik * Bk[b_col + j]
         return
 
+    # If the current recursive subproblem is odd-sized, pad THIS subproblem only.
+    if size % 2 != 0:
+        padded = size + 1
+
+        A_pad = copy_block_to_padded(A, a_row, a_col, size, padded)
+        B_pad = copy_block_to_padded(B, b_row, b_col, size, padded)
+        C_pad = zeros(padded, padded)
+
+        _strassen_recursive(A_pad, B_pad, C_pad, padded, n_0, 0, 0, 0, 0)
+
+        # Copy only the true size x size result back into C
+        for i in range(size):
+            Ci = C[i]
+            Cpi = C_pad[i]
+            for j in range(size):
+                Ci[j] = Cpi[j]
+        return
+
+    # Even size: do Strassen with offsets and local temporaries
     mid = size // 2
 
-    # allocate temporaries ONCE per level
     T1 = zeros(mid, mid)
     T2 = zeros(mid, mid)
 
@@ -136,52 +178,63 @@ def _strassen_power_of_2_optimized(A, B, C, size, n_0, a_row=0, a_col=0, b_row=0
     M6 = zeros(mid, mid)
     M7 = zeros(mid, mid)
 
-    # ---- M1 = (A11 + A22)(B11 + B22)
+    # M1 = (A11 + A22)(B11 + B22)
     add_into(T1, A, A, mid, a_row, a_col, a_row + mid, a_col + mid)
     add_into(T2, B, B, mid, b_row, b_col, b_row + mid, b_col + mid)
-    _strassen_power_of_2_optimized(T1, T2, M1, mid, n_0)
+    _strassen_recursive(T1, T2, M1, mid, n_0)
 
-    # ---- M2 = (A21 + A22) B11
+    # M2 = (A21 + A22)B11
     add_into(T1, A, A, mid, a_row + mid, a_col, a_row + mid, a_col + mid)
-    _strassen_power_of_2_optimized(T1, B, M2, mid, n_0, 0, 0, b_row, b_col)
+    _strassen_recursive(T1, B, M2, mid, n_0, 0, 0, b_row, b_col)
 
-    # ---- M3 = A11 (B12 - B22)
+    # M3 = A11(B12 - B22)
     sub_into(T2, B, B, mid, b_row, b_col + mid, b_row + mid, b_col + mid)
-    _strassen_power_of_2_optimized(A, T2, M3, mid, n_0, a_row, a_col, 0, 0)
+    _strassen_recursive(A, T2, M3, mid, n_0, a_row, a_col, 0, 0)
 
-    # ---- M4 = A22 (B21 - B11)
+    # M4 = A22(B21 - B11)
     sub_into(T2, B, B, mid, b_row + mid, b_col, b_row, b_col)
-    _strassen_power_of_2_optimized(A, T2, M4, mid, n_0, a_row + mid, a_col + mid, 0, 0)
+    _strassen_recursive(A, T2, M4, mid, n_0, a_row + mid, a_col + mid, 0, 0)
 
-    # ---- M5 = (A11 + A12) B22
+    # M5 = (A11 + A12)B22
     add_into(T1, A, A, mid, a_row, a_col, a_row, a_col + mid)
-    _strassen_power_of_2_optimized(T1, B, M5, mid, n_0, 0, 0, b_row + mid, b_col + mid)
+    _strassen_recursive(T1, B, M5, mid, n_0, 0, 0, b_row + mid, b_col + mid)
 
-    # ---- M6 = (A21 - A11)(B11 + B12)
+    # M6 = (A21 - A11)(B11 + B12)
     sub_into(T1, A, A, mid, a_row + mid, a_col, a_row, a_col)
     add_into(T2, B, B, mid, b_row, b_col, b_row, b_col + mid)
-    _strassen_power_of_2_optimized(T1, T2, M6, mid, n_0)
+    _strassen_recursive(T1, T2, M6, mid, n_0)
 
-    # ---- M7 = (A12 - A22)(B21 + B22)
+    # M7 = (A12 - A22)(B21 + B22)
     sub_into(T1, A, A, mid, a_row, a_col + mid, a_row + mid, a_col + mid)
     add_into(T2, B, B, mid, b_row + mid, b_col, b_row + mid, b_col + mid)
-    _strassen_power_of_2_optimized(T1, T2, M7, mid, n_0)
+    _strassen_recursive(T1, T2, M7, mid, n_0)
 
+    # Assemble result into C
     for i in range(mid):
         Ci = C[i]
         Ci_mid = C[i + mid]
 
+        M1i = M1[i]
+        M2i = M2[i]
+        M3i = M3[i]
+        M4i = M4[i]
+        M5i = M5[i]
+        M6i = M6[i]
+        M7i = M7[i]
+
         for j in range(mid):
-            C11 = M1[i][j] + M4[i][j] - M5[i][j] + M7[i][j]
-            C12 = M3[i][j] + M5[i][j]
-            C21 = M2[i][j] + M4[i][j]
-            C22 = M1[i][j] - M2[i][j] + M3[i][j] + M6[i][j]
+            Ci[j] = M1i[j] + M4i[j] - M5i[j] + M7i[j]          # C11
+            Ci[j + mid] = M3i[j] + M5i[j]                      # C12
+            Ci_mid[j] = M2i[j] + M4i[j]                        # C21
+            Ci_mid[j + mid] = M1i[j] - M2i[j] + M3i[j] + M6i[j]  # C22
 
-            Ci[j] = C11
-            Ci[j + mid] = C12
-            Ci_mid[j] = C21
-            Ci_mid[j + mid] = C22
 
+def strassen_multiply_optimized(A: Matrix, B: Matrix, n_0: int) -> Matrix:
+    n = len(A)
+
+    C = zeros(n, n)
+    _strassen_recursive(A, B, C, n, n_0)
+    return C
 
 def read_input_file(filepath, d):
     with open(filepath, "r") as f:

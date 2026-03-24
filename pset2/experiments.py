@@ -1,42 +1,64 @@
 import random
 import time
 from typing import List
+import matplotlib.pyplot as plt  # <-- added
 
 from strassen import (
     random_matrix,
-    strassen_multiply_optimized
+    strassen_multiply_optimized,
+    random_binary_matrix
 )
 
 def n0_experiment(n=256, repeats=3):
     random.seed(42)
-    A = random_matrix(n)
-    B = random_matrix(n)
+    A = random_binary_matrix(n)
+    B = random_binary_matrix(n)
 
     best_n0 = None
     best_time = float("inf")
 
-    for n0 in range(1, n + 1):
-        total = 0.0
+    n0_options = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+    n0_values = []       # <-- added
+    runtime_values = []  # <-- added
 
-        for _ in range(repeats):
-            start = time.perf_counter()
-            strassen_multiply_optimized(A, B, n0)
-            end = time.perf_counter()
-            total += (end - start)
+    for n0 in n0_options:
+        
+        if n0 <= n:
+            total = 0.0
 
-        avg_time = total / repeats
+            for _ in range(repeats):
+                start = time.perf_counter()
+                strassen_multiply_optimized(A, B, n0)
+                end = time.perf_counter()
+                total += (end - start)
 
-        # print(n0, avg_time)
+            avg_time = total / repeats
 
-        if avg_time < best_time:
-            best_time = avg_time
-            best_n0 = n0
+            n0_values.append(n0)            # <-- added
+            runtime_values.append(avg_time) # <-- added
 
-    print("for n = ", n, " \n the best n0:", best_n0)
+            if avg_time < best_time:
+                best_time = avg_time
+                best_n0 = n0
+
+    print("for n = ", n, " \n the best n0:", best_n0, "\n runtime:", total)
+
+    '''
+    # ---- plotting ----
+    plt.figure()
+    plt.plot(n0_values, runtime_values)
+    plt.xlabel("n0")
+    plt.ylabel("Average Runtime (s)")
+    plt.title(f"Runtime vs n0 (n = {n})")
+    plt.show()
+    # ------------------
+    '''
     return best_n0
 
 
 if __name__ == "__main__":
-    n_values = [63, 64, 127, 128, 256, 512, 1024]
+    n_values = [70]
+    
     for n in n_values:
         n0_experiment(n)
+    
