@@ -9,7 +9,7 @@ from strassen import (
     random_binary_matrix
 )
 
-def n0_experiment(n=256, repeats=3):
+def n0_experiment(n=256, repeats=1):
     random.seed(42)
     A = random_binary_matrix(n)
     B = random_binary_matrix(n)
@@ -21,9 +21,10 @@ def n0_experiment(n=256, repeats=3):
     n0_values = []       # <-- added
     runtime_values = []  # <-- added
 
-    for n0 in n0_options:
+    for n0 in range(1, 100):
         
         if n0 <= n:
+            print("i am running +", n0)
             total = 0.0
 
             for _ in range(repeats):
@@ -43,7 +44,7 @@ def n0_experiment(n=256, repeats=3):
 
     print("for n = ", n, " \n the best n0:", best_n0, "\n runtime:", total)
 
-    '''
+    
     # ---- plotting ----
     plt.figure()
     plt.plot(n0_values, runtime_values)
@@ -52,12 +53,12 @@ def n0_experiment(n=256, repeats=3):
     plt.title(f"Runtime vs n0 (n = {n})")
     plt.show()
     # ------------------
-    '''
+    
     return best_n0
 
 
 if __name__ == "__main__":
-    n_values = [70]
+    n_values = [1024, 2048]
     
     for n in n_values:
         n0_experiment(n)
