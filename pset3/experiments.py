@@ -8,7 +8,7 @@ summary tables + a comparison plot.
 import random
 import statistics
 import csv
-from main import (
+from pset3.partition import (
     karmarkar_karp,
     repeated_random,
     hill_climbing,

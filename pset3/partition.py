@@ -5,35 +5,8 @@ import math
  
 MAX_ITER = 25000
 
-
-def dp(A):
-    n = len(A)
-    b = sum(A)
-
-    # dp[i][j] = whether some subset of first i numbers sums to j
-    dp = [[False] * (b + 1) for _ in range(n + 1)]
-
-    # base case
-    dp[0][0] = True
-
-    for i in range(1, n + 1):
-        ai = A[i - 1]
-        for j in range(b + 1):
-            dp[i][j] = dp[i - 1][j]
-            if j >= ai and dp[i - 1][j - ai]:
-                dp[i][j] = True
-
-    # find best over all matrix entries
-    best_residue = float("inf")
-    for j in range(b + 1):
-        if dp[n][j]:
-            residue = abs(b - 2 * j)
-            best_residue = min(best_residue, residue)
-
-    return best_residue
-
 def karmarkar_karp(A):
-    heap = [-a for a in A]          # max-heap via negation
+    heap = [-a for a in A]         
     heapq.heapify(heap)
     while len(heap) > 1:
         a1 = -heapq.heappop(heap)
@@ -44,12 +17,9 @@ def karmarkar_karp(A):
 # residue helper
 
 def residue_standard(A, S):
-    """Residue for standard ±1 representation."""
     return abs(sum(s * a for s, a in zip(S, A)))
 
-
 def residue_prepartition(A, P):
-    """Residue for prepartition representation: build A', then run KK."""
     n = len(A)
     Ap = [0] * n
     for j in range(n):
@@ -73,7 +43,6 @@ def random_neighbor_standard(S):
         S2[j] = -S2[j]
     return S2
 
-
 def random_neighbor_prepartition(P):
     n = len(P)
     P2 = P[:]
@@ -83,7 +52,9 @@ def random_neighbor_prepartition(P):
     P2[i] = j
     return P2
 
-def repeated_random(A, prepartition=False):
+# algs 
+
+def repeated_random(A, prepartition):
     n = len(A)
     if prepartition:
         S = random_prepartition(n)
@@ -164,9 +135,6 @@ def simulated_annealing(A, prepartition=False):
                 best_S, best_res = S[:], res
     return best_res
 
-# ─────────────────────────────────────────────
-#  DISPATCH TABLE  (matches Table 1)
-# ─────────────────────────────────────────────
 
 ALGORITHMS = {
     0:  lambda A: karmarkar_karp(A),
@@ -177,7 +145,6 @@ ALGORITHMS = {
     12: lambda A: hill_climbing(A,    prepartition=True),
     13: lambda A: simulated_annealing(A, prepartition=True),
 }
-
 
 def main():
     flag     = int(sys.argv[1])
