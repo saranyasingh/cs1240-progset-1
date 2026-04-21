@@ -8,7 +8,7 @@ summary tables + a comparison plot.
 import random
 import statistics
 import csv
-from pset3.partition import (
+from partition import (
     karmarkar_karp,
     repeated_random,
     hill_climbing,
@@ -93,6 +93,7 @@ def plot_results(results):
     try:
         import matplotlib.pyplot as plt
         import numpy as np
+        import statistics
     except ImportError:
         print("\n(matplotlib not available — skipping plot)")
         return
@@ -104,25 +105,17 @@ def plot_results(results):
     # ── Bar chart of means ──────────────────────────────────────────
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
-    colors = ["#2196F3", "#4CAF50", "#FF9800", "#F44336",
-              "#9C27B0", "#00BCD4", "#795548"]
-
     x = np.arange(len(names))
-    bars = axes[0].bar(x, means, yerr=stds, capsize=5,
-                       color=colors, alpha=0.85, edgecolor="black")
+    bars = axes[0].bar(x, means, yerr=stds, capsize=5, alpha=0.85)
     axes[0].set_xticks(x)
     axes[0].set_xticklabels(names, rotation=30, ha="right", fontsize=9)
     axes[0].set_ylabel("Residue")
     axes[0].set_title("Mean Residue (±1 std dev) across 50 Instances")
     axes[0].set_yscale("log")
-    axes[0].yaxis.grid(True, which="both", linestyle="--", alpha=0.5)
 
-    # ── Box plot ────────────────────────────────────────────────────
+    # ── Box plot (no colors) ────────────────────────────────────────
     data = [results[n] for n in names]
-    bp = axes[1].boxplot(data, patch_artist=True, notch=False)
-    for patch, color in zip(bp["boxes"], colors):
-        patch.set_facecolor(color)
-        patch.set_alpha(0.7)
+    axes[1].boxplot(data, notch=False)
     axes[1].set_xticks(range(1, len(names) + 1))
     axes[1].set_xticklabels(names, rotation=30, ha="right", fontsize=9)
     axes[1].set_ylabel("Residue")
@@ -134,7 +127,6 @@ def plot_results(results):
     plt.savefig("results_plot.png", dpi=150)
     print("Saved plot to results_plot.png")
     plt.show()
-
 if __name__ == "__main__":
     print("Running experiments — this may take a few minutes...")
     results = run_experiments()

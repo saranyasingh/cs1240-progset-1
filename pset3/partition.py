@@ -1,18 +1,81 @@
 import sys
 import random
-import heapq
 import math
  
 MAX_ITER = 25000
 
+# HEAP IMPLEMENTATION
+
+class MaxHeap:
+    def __init__(self):
+        self.data = []
+
+    def push(self, value):
+        self.data.append(value)
+        self._bubble_up(len(self.data) - 1)
+
+    def pop(self):
+        if not self.data:
+            raise IndexError("pop from empty heap")
+
+        root = self.data[0]
+        last = self.data.pop()
+
+        if self.data:
+            self.data[0] = last
+            self._bubble_down(0)
+
+        return root
+
+    def build_heap(self, values):
+        self.data = list(values)
+        for i in range((len(self.data) // 2) - 1, -1, -1):
+            self._bubble_down(i)
+
+    def _bubble_up(self, i):
+        while i > 0:
+            parent = (i - 1) // 2
+            if self.data[i] > self.data[parent]:
+                self.data[i], self.data[parent] = self.data[parent], self.data[i]
+                i = parent
+            else:
+                break
+
+    def _bubble_down(self, i):
+        n = len(self.data)
+        while True:
+            left = 2 * i + 1
+            right = 2 * i + 2
+            largest = i
+
+            if left < n and self.data[left] > self.data[largest]:
+                largest = left
+            if right < n and self.data[right] > self.data[largest]:
+                largest = right
+
+            if largest == i:
+                break
+
+            self.data[i], self.data[largest] = self.data[largest], self.data[i]
+            i = largest
+
+    def __len__(self):
+        return len(self.data)
+
+    def is_empty(self):
+        return len(self.data) == 0
+
+
 def karmarkar_karp(A):
-    heap = [-a for a in A]         
-    heapq.heapify(heap)
+    heap = MaxHeap()
+    heap.build_heap(A)
+
     while len(heap) > 1:
-        a1 = -heapq.heappop(heap)
-        a2 = -heapq.heappop(heap)
-        heapq.heappush(heap, -(abs(a1 - a2)))
-    return abs(heap[0])
+        a1 = heap.pop()
+        a2 = heap.pop()
+        heap.push(abs(a1 - a2))
+
+    return 0 if heap.is_empty() else heap.pop()
 
 # residue helper
 
