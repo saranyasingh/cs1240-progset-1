@@ -4,10 +4,13 @@ run_experiments.py
 Generates 50 random instances, runs all 7 algorithms, and produces
 summary tables + a comparison plot.
 """
-
+import time
 import random
 import statistics
 import csv
+
+random.seed(0)
+
 from partition import (
     karmarkar_karp,
     repeated_random,
@@ -36,16 +39,24 @@ def run_experiments():
     # results[alg_name] = list of residues (one per instance)
     results = {name: [] for name in ALGORITHMS}
 
+    # runtimes[alg_name]= list of runtimes (one per instance)
+    runtimes = {name: [] for name in ALGORITHMS} 
+
+
     for inst in range(1, NUM_INSTANCES + 1):
         A = generate_instance()
         print(f"Instance {inst}/{NUM_INSTANCES}...", flush=True)
         for name, fn in ALGORITHMS.items():
+            start = time.perf_counter()
             residue = fn(A)
+            end = time.perf_counter()
+
             results[name].append(residue)
+            runtimes[name].append(end - start)
 
-    return results
+    return results, runtimes
 
-def print_table(results):
+def print_residue_table(results):
     names = list(results.keys())
     col_w = 26
 
@@ -63,7 +74,22 @@ def print_table(results):
 
     print("=" * len(header))
 
-def save_csv(results, path="results.csv"):
+def print_runtime_table(runtimes):
+    names = list(runtimes.keys())
+    col_w = 26
+
+    header = f"{'Algorithm':<{col_w}} {'Avg Runtime (s)':>18}"
+    print("\n" + "=" * len(header))
+    print(header)
+    print("=" * len(header))
+
+    for name in names:
+        avg_time = statistics.mean(runtimes[name])
+        print(f"{name:<{col_w}} {avg_time:>18.6f}")
+
+    print("=" * len(header))
+
+def save_residue_csv(results, path="results.csv"):
     names = list(results.keys())
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
@@ -88,6 +114,19 @@ def save_csv(results, path="results.csv"):
             ])
     print(f"\nSaved per-instance results to {path}")
     print(f"Saved summary to {summary_path}")
+
+def save_runtime_csv(runtimes, path="runtime_summary.csv"):
+    names = list(runtimes.keys())
+
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Algorithm", "Average Runtime (seconds)"])
+
+        for name in names:
+            avg_time = statistics.mean(runtimes[name])
+            writer.writerow([name, avg_time])
+
+    print(f"Saved runtime summary to {path}")
 
 def plot_results(results):
     try:
@@ -129,7 +168,9 @@ def plot_results(results):
     plt.show()
 if __name__ == "__main__":
     print("Running experiments — this may take a few minutes...")
-    results = run_experiments()
-    print_table(results)
-    save_csv(results)
+    results, runtimes = run_experiments()
+    print_residue_table(results)
+    print_runtime_table(runtimes)
+    save_residue_csv(results)
+    save_runtime_csv(runtimes)
     plot_results(results)

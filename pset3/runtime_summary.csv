@@ -1,0 +1,8 @@
+Algorithm,Average Runtime (seconds)
+KK,0.0002985049411654472
+Repeated Random,0.7612490648776293
+Hill Climbing,0.17812766574323177
+Simulated Annealing,0.1855508250836283
+PP Repeated Random,7.155684858383611
+PP Hill Climbing,6.37813844668679
+PP Simulated Annealing,6.438801652537659
